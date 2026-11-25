@@ -10,9 +10,11 @@ import { Reveal } from '../components/Reveal'
 import { usePageTitle } from '../lib/title'
 import { DESKTOP_DOWNLOADS } from '../shared/downloads'
 
-const RELEASES_API = 'https://api.github.com/repos/Mrghost6337/clipfarm-studio-releases/releases/latest'
+const RELEASES_API = 'https://api.github.com/repos/Mrghost6337/clipfarm-studio-releases/releases?per_page=10'
 
 type GitHubRelease = {
+  draft?: boolean
+  prerelease?: boolean
   assets?: Array<{ name?: string; browser_download_url?: string }>
 }
 
@@ -25,27 +27,32 @@ function useLatestWindowsInstaller() {
   const configured = DESKTOP_DOWNLOADS.windows
   const [href, setHref] = useState<string | null>(configured)
   const [checking, setChecking] = useState(!configured)
+  const [beta, setBeta] = useState(true)
 
   useEffect(() => {
-    if (configured) {
-      setHref(configured)
-      setChecking(false)
-      return
-    }
-
     const controller = new AbortController()
+    setChecking(!configured)
+
     fetch(RELEASES_API, {
       signal: controller.signal,
       headers: { Accept: 'application/vnd.github+json' },
     })
-      .then((response) => (response.ok ? (response.json() as Promise<GitHubRelease>) : null))
-      .then((release) => {
+      .then((response) => (response.ok ? (response.json() as Promise<GitHubRelease[]>) : null))
+      .then((releases) => {
         if (controller.signal.aborted) return
+        const release = releases?.find((item) =>
+          !item.draft && item.assets?.some((asset) => asset.name && /\.exe$/i.test(asset.name) && !/\.blockmap$/i.test(asset.name)),
+        )
         const asset = release?.assets?.find((item) => item.name && /\.exe$/i.test(item.name) && !/\.blockmap$/i.test(item.name))
-        setHref(asset?.browser_download_url ?? null)
+        if (asset?.browser_download_url) {
+          setHref(asset.browser_download_url)
+          setBeta(Boolean(release?.prerelease))
+        } else {
+          setHref(configured)
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) setHref(null)
+        if (!controller.signal.aborted) setHref(configured)
       })
       .finally(() => {
         if (!controller.signal.aborted) setChecking(false)
@@ -54,12 +61,12 @@ function useLatestWindowsInstaller() {
     return () => controller.abort()
   }, [configured])
 
-  return { href, checking }
+  return { href, checking, beta }
 }
 
 const WINDOWS_POINTS = ['Runs on your computer', 'Captions, face tracking and exports', 'One sign-in, no API key']
 
-function WindowsCard({ href, checking }: { href: string | null; checking: boolean }) {
+function WindowsCard({ href, checking, beta }: { href: string | null; checking: boolean; beta: boolean }) {
   return (
     <Card tone="ink" className="relative flex h-full flex-col overflow-hidden p-6 sm:p-8">
       <div aria-hidden className="pointer-events-none absolute -top-24 -right-20 size-64 rounded-full bg-accent/25 blur-3xl" />
@@ -68,7 +75,7 @@ function WindowsCard({ href, checking }: { href: string | null; checking: boolea
           <span aria-hidden className="grid size-12 place-items-center rounded-[var(--radius-md)] bg-white/10 text-white ring-1 ring-white/10">
             <Monitor className="size-6" strokeWidth={2} />
           </span>
-          <Tag tone="peach">Windows 10 &amp; 11</Tag>
+          <Tag tone="peach">{beta ? 'Beta · Windows 10 & 11' : 'Windows 10 & 11'}</Tag>
         </div>
 
         <div>
@@ -111,7 +118,9 @@ function WindowsCard({ href, checking }: { href: string | null; checking: boolea
           )}
           <p className="mt-3 text-center text-[0.78rem] leading-relaxed text-white/55">
             {href
-              ? 'The installer comes from the official GitHub release. It is not code-signed yet.'
+              ? beta
+                ? 'This is the public beta build. It is not code-signed yet.'
+                : 'The installer comes from the official GitHub release. It is not code-signed yet.'
               : checking
                 ? 'Looking for the latest public build.'
                 : 'No public Windows build is available yet.'}
@@ -187,7 +196,7 @@ const STEPS = [
 
 export function DownloadPage() {
   usePageTitle('Download Clipfarm')
-  const { href: windowsHref, checking } = useLatestWindowsInstaller()
+  const { href: windowsHref, checking, beta } = useLatestWindowsInstaller()
 
   return (
     <>
@@ -225,7 +234,7 @@ export function DownloadPage() {
         <Container className="max-w-5xl">
           <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
             <Reveal>
-              <WindowsCard href={windowsHref} checking={checking} />
+              <WindowsCard href={windowsHref} checking={checking} beta={beta} />
             </Reveal>
             <Reveal delay={0.08}>
               <MacCard />
