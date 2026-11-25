@@ -1,0 +1,60 @@
+name: Desktop beta release (private)
+
+# Publishes the installer that CI already built and tested (run 45639495830,
+# commit bc10d70 = main ebbaa61) as a pre-release in this private repository.
+# Nothing is rebuilt. Runs on a push to release/beta only.
+
+on:
+  push:
+    branches: [release/beta]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: clipfarm-studio-windows-installer
+          run-id: 45639495830
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: installer
+      - name: Create the pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd installer
+          mv Clipfarm-Studio-Setup-*.exe Clipfarm-Studio-Setup-0.1.0-beta.1.exe
+          sha256sum Clipfarm-Studio-Setup-0.1.0-beta.1.exe | tee SHA256SUMS.txt
+          cat > notes.md <<'NOTES'
+          First beta of Clipfarm Studio for Windows (64-bit, Windows 10/11).
+
+          **Unsigned build.** Windows SmartScreen will show "Windows protected your PC". Choose *More info* → *Run anyway*. A signed build follows once a code-signing certificate is in place.
+
+          What it does:
+          - Installs per user (no admin), adds Start menu and desktop shortcuts.
+          - First run: welcome, usage choice, preparing the bundled pipeline, sign-in in your browser, profile, PC check, speech model download (verified with SHA-256), terms, ready.
+          - Makes vertical, captioned 1080×1920 clips on this PC from a link or an uploaded video. Videos and clips stay on the PC; only clip details sync to your account.
+
+          Known limits of this beta:
+          - Sign-in needs the updated website, which is not deployed yet.
+          - Tested on Windows Server 2025 (GitHub Actions: install, smoke test, end-to-end test, real render, uninstall), not yet on a consumer Windows 10/11 PC.
+          - Auto-update is not active for this beta: it reads the public releases repository, which does not exist yet.
+          - Cloud and Both processing are "Coming soon".
+
+          Your data is in `%LOCALAPPDATA%\Clipfarm` and is kept when you uninstall.
+
+          Built from commit bc10d70 (identical to main ebbaa61) by workflow run 45639495830.
+          NOTES
+          sed -i 's/^          //' notes.md
+          gh release create v0.1.0-beta.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target ebbaa61d03c8f8a3a77928a4d09d617d360fb054 \
+            --title "Clipfarm Studio for Windows 0.1.0 beta 1" \
+            --notes-file notes.md \
+            --prerelease \
+            Clipfarm-Studio-Setup-0.1.0-beta.1.exe SHA256SUMS.txt
