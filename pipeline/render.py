@@ -55,8 +55,17 @@ def fontconfig_file() -> str:
 
 
 def _filter_path(path: str) -> str:
-    # ffmpeg filter option values need `:` and `\` escaped.
-    return path.replace("\\", "\\\\").replace(":", "\\:")
+    """Escapes a file path for use as a filter option inside a filtergraph.
+
+    ffmpeg parses a filtergraph twice: first the graph (where \\ ' [ ] , ;
+    are special), then each filter's options (where \\ ' : are special). A
+    Windows path like C:\\Users\\x has both a drive colon and backslashes,
+    so: use forward slashes (Windows ffmpeg accepts them), escape for the
+    option level, then escape that result for the graph level.
+    """
+    value = path.replace("\\", "/") if os.name == "nt" else path
+    option = "".join("\\" + ch if ch in "\\':" else ch for ch in value)
+    return "".join("\\" + ch if ch in "\\'[],;" else ch for ch in option)
 
 
 def render_clip(
