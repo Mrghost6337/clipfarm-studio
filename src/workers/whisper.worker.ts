@@ -4,13 +4,23 @@
 import { env, pipeline } from '@huggingface/transformers'
 
 const MODEL = 'onnx-community/whisper-tiny'
-env.allowLocalModels = false
-// The bundled onnxruntime WebAssembly file is 26 MB, above the site upload
-// limit. Keep the JS local and load the exact matching runtime build from the
-// CDN instead; it is cached by the browser like the model.
+const DESKTOP = import.meta.env.VITE_DESKTOP === '1'
 const ORT_VERSION = '1.31.0-dev.20260914-8d85527a0'
-if (env.backends.onnx.wasm) {
-  env.backends.onnx.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`
+if (DESKTOP) {
+  // The desktop app serves the runtime from /vendor/ort/ and the weights from
+  // /models/web/, installed by its model manager. Nothing is fetched remotely.
+  env.allowLocalModels = true
+  env.allowRemoteModels = false
+  env.localModelPath = '/models/web/'
+  if (env.backends.onnx.wasm) env.backends.onnx.wasm.wasmPaths = '/vendor/ort/'
+} else {
+  env.allowLocalModels = false
+  // The bundled onnxruntime WebAssembly file is 26 MB, above the site upload
+  // limit. Keep the JS local and load the exact matching runtime build from the
+  // CDN instead; it is cached by the browser like the model.
+  if (env.backends.onnx.wasm) {
+    env.backends.onnx.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`
+  }
 }
 
 type Incoming =

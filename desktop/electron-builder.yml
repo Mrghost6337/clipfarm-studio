@@ -1,0 +1,54 @@
+# Clipfarm Studio desktop packaging. Build on Windows (CI): bun run dist:win
+appId: studio.clipfarm.desktop
+productName: Clipfarm Studio
+executableName: Clipfarm Studio
+copyright: Copyright © 2026 Clipfarm Studio
+directories:
+  output: release
+  buildResources: assets
+files:
+  - dist/**/*
+  - assets/icon.png
+  - package.json
+  - "!**/*.map"
+asar: true
+extraResources:
+  - from: build/sidecar
+    to: sidecar
+    filter: ["**/*"]
+protocols:
+  - name: Clipfarm Studio sign-in
+    schemes: [clipfarm]
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: assets/icon.png
+  artifactName: Clipfarm-Studio-Setup-${version}.${ext}
+  # Code signing is off until a certificate exists. Provide it in CI as
+  # CSC_LINK (base64 .pfx) + CSC_KEY_PASSWORD, or configure Azure Trusted
+  # Signing; see desktop/README.md. Never commit a certificate.
+  signAndEditExecutable: true
+linux:
+  target: [dir]
+  icon: assets/icon.png
+  category: Video
+nsis:
+  oneClick: true
+  perMachine: false
+  allowElevation: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Clipfarm Studio
+  runAfterFinish: true
+  # Your clips and models stay in %LOCALAPPDATA%\Clipfarm after uninstalling,
+  # so a reinstall keeps them. The app's Settings can delete them.
+  deleteAppDataOnUninstall: false
+  artifactName: Clipfarm-Studio-Setup-${version}.${ext}
+# Updates come from a public, releases-only repository; the app never holds
+# a GitHub token. The repository must exist before the first release.
+publish:
+  provider: github
+  owner: Mrghost6337
+  repo: clipfarm-studio-releases
+  releaseType: release

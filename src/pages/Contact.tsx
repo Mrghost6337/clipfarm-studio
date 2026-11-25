@@ -1,4 +1,4 @@
-import { Clock3, Mail, MessageSquare, Send } from 'lucide-react'
+import { Mail, MessageSquare, Send } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 
 import { Button } from '../components/Button'
@@ -28,7 +28,24 @@ export function Contact() {
     setError('')
     const subject = encodeURIComponent(`[${topic}] ${name}`)
     const body = encodeURIComponent(`${message}\n\n— ${name}\n${email}`)
-    window.location.href = `mailto:${SITE.email}?subject=${subject}&body=${body}`
+    if (SITE.email) window.location.href = `mailto:${SITE.email}?subject=${subject}&body=${body}`
+  }
+
+  // No public address yet: say so instead of showing a form that cannot send.
+  if (!SITE.email) {
+    return (
+      <section className="pt-16 pb-20 sm:pt-24">
+        <Container className="flex max-w-2xl flex-col gap-5">
+          <Eyebrow>Contact</Eyebrow>
+          <h1 className="text-[2.4rem] leading-[1.04] font-semibold tracking-[-0.04em] sm:text-[3.1rem]">Contact</h1>
+          <Notice tone="info">There is no public contact address yet. It will be listed here as soon as there is one.</Notice>
+          <p className="text-[1rem] leading-relaxed text-body">
+            Questions about how the product works are answered in the <a href="/resources/faq" className="font-semibold text-ink underline decoration-2 underline-offset-4">FAQ</a> and the{' '}
+            <a href="/resources/guides" className="font-semibold text-ink underline decoration-2 underline-offset-4">guides</a>.
+          </p>
+        </Container>
+      </section>
+    )
   }
 
   return (
@@ -38,13 +55,12 @@ export function Contact() {
           <Eyebrow>Contact</Eyebrow>
           <h1 className="text-[2.4rem] leading-[1.04] font-semibold tracking-[-0.04em] sm:text-[3.1rem]">Tell us what you are clipping</h1>
           <p className="text-[1rem] leading-relaxed text-body">
-            Product questions, plan advice, rights issues or a bug in the local pipeline. A real person reads it; we usually answer within one working day.
+            Product questions, plan advice, rights issues or a bug in the local pipeline.
           </p>
           <div className="flex flex-col gap-3">
             {[
               { icon: Mail, title: 'Email', text: SITE.email },
-              { icon: Clock3, title: 'Response time', text: 'Within 1 working day, Monday to Friday' },
-              { icon: MessageSquare, title: 'Rights requests', text: 'Include the URL and the clip; we remove or correct it quickly' },
+              { icon: MessageSquare, title: 'Rights requests', text: 'Include the URL and the clip.' },
             ].map((item) => (
               <div key={item.title} className="flex items-start gap-3">
                 <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-sand text-accent-ink">

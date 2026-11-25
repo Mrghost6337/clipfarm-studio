@@ -11,6 +11,7 @@ import { SectionHeading } from '../components/SectionHeading'
 import { GTA, IMAGES } from '../content'
 import { useAuth } from '../lib/auth'
 import { usePageTitle } from '../lib/title'
+import { FREE_PLAN } from '../shared/account'
 
 const initials = (name: string) =>
   name
@@ -230,14 +231,6 @@ function Creators() {
                 <div className="flex items-start justify-between gap-2">
                   <span aria-hidden className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#ff2d8a] to-[#ffb03a] p-[2px] text-[0.85rem] font-bold text-white">
                     <span className="grid size-full place-items-center rounded-full bg-ink/40">{initials(creator.name)}</span>
-                    <img
-                      src={creator.avatar}
-                      alt=""
-                      width={56}
-                      height={56}
-                      loading="lazy"
-                      className="absolute inset-0 size-full rounded-full object-cover ring-2 ring-paper transition-transform duration-[var(--duration-base)] ease-[var(--ease-spring)] group-hover:scale-105"
-                    />
                   </span>
                   <ArrowUpRight aria-hidden className="size-4 text-muted transition-[transform,color] duration-[var(--duration-base)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink" />
                 </div>
@@ -255,14 +248,6 @@ function Creators() {
           ))}
         </div>
         <p className="mt-6 max-w-2xl text-[0.8rem] leading-relaxed text-muted">{GTA.creatorsNote}</p>
-        <details className="mt-3 max-w-2xl rounded-[var(--radius-md)] bg-sand px-4 py-2 text-[0.78rem] text-muted">
-          <summary className="cursor-pointer font-semibold text-ink-2">Photo credits</summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {GTA.creatorCredits.map((credit) => (
-              <li key={credit}>{credit}</li>
-            ))}
-          </ul>
-        </details>
       </Container>
     </section>
   )
@@ -451,7 +436,7 @@ function Analyzer() {
             <div className="rounded-[var(--radius-xl)] bg-paper p-6 shadow-[var(--shadow-raise)] sm:p-8">
               {loading ? (
                 <p className="text-[0.9rem] text-muted">Checking your session…</p>
-              ) : user?.planId ? (
+              ) : user ? (
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1">
                     <h3 className="text-[1.15rem] font-semibold tracking-[-0.02em]">Paste the link</h3>
@@ -466,12 +451,12 @@ function Analyzer() {
                     <p className="text-[0.88rem] leading-relaxed text-body">{GTA.analyzerSignedOut}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <ButtonLink to={user ? '/plans' : '/signup'}>{user ? 'Choose a plan' : 'Create account'}</ButtonLink>
+                    <ButtonLink to="/signup">Create account</ButtonLink>
                     <ButtonLink to="/login" variant="secondary">
                       Log in
                     </ButtonLink>
                   </div>
-                  <p className="text-[0.76rem] leading-relaxed text-muted">No card for the first VOD pass. Cancel any time.</p>
+                  <p className="text-[0.76rem] leading-relaxed text-muted">Free accounts get {FREE_PLAN.limit} clips a month. No card needed.</p>
                 </div>
               )}
             </div>

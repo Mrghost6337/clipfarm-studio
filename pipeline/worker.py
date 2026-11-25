@@ -72,6 +72,9 @@ class Worker:
         if listing.get("kind") != "video":
             raise RuntimeError("That link is a channel. Pick a single video from the channel list first.")
         video = listing["video"]
+        # A title given when the job was created (an upload's original file name) wins.
+        if job.get("title"):
+            video = {**video, "title": job["title"]}
         db.update(
             job_id,
             title=video.get("title"),
@@ -107,10 +110,12 @@ class Worker:
             media_path = downloaded["path"]
             if downloaded.get("info"):
                 metadata = {**video, **{key: downloaded["info"].get(key) for key in ("title", "duration", "thumbnail") if downloaded["info"].get(key)}}
+                if job.get("title"):
+                    metadata["title"] = job["title"]
                 duration = float(metadata.get("duration") or duration)
             probe = ingest.probe(media_path)
             duration = probe["duration"] or duration
-            db.update(job_id, title=metadata.get("title"), duration=duration, progress=0.28)
+            db.update(job_id, title=job.get("title") or metadata.get("title"), duration=duration, progress=0.28)
             self._check(job_id)
             db.update(job_id, stage="transcribing", message="Extracting audio and transcribing", progress=0.3)
             transcript = transcribe.transcribe(media_path, job_dir, progress=lambda msg, frac: progress(msg, 0.3 + frac * 0.42))

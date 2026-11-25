@@ -18,7 +18,6 @@ import { Overview } from './pages/app/Overview'
 import { SettingsPage } from './pages/app/SettingsPage'
 import { SourcesPage } from './pages/app/SourcesPage'
 import { StudioPage } from './pages/app/StudioPage'
-import { CaseStudies, CaseStudyPage } from './pages/CaseStudies'
 import { Gta6 } from './pages/Gta6'
 import { Home } from './pages/Home'
 import { Local } from './pages/Local'
@@ -40,7 +39,13 @@ import { Toolkit } from './pages/Toolkit'
 
 const APP_ROUTES = ['/dashboard', '/plans', '/onboarding']
 /** Routes that replace the marketing chrome with the dashboard's own shell. */
-const SHELL_ROUTES = ['/dashboard', '/clip', '/studio', '/app-login']
+const SHELL_ROUTES = ['/dashboard', '/clip', '/studio', '/app-login', '/desktop']
+
+/** /app-login moved to /desktop/authorize; keep the query (state, challenge, redirect). */
+function AppLoginRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/desktop/authorize${search}`} replace />
+}
 
 function ScrollManager() {
   const { pathname, hash } = useLocation()
@@ -75,14 +80,14 @@ function Pages() {
           <Route path="studio" element={<StudioEntry />} />
           <Route path="pipeline" element={<PlanPage />} />
           <Route path="90-day-plan" element={<PlanPage />} />
-          <Route path="case-studies" element={<CaseStudies />} />
-          <Route path="case-studies/:slug" element={<CaseStudyPage />} />
+          <Route path="case-studies/*" element={<Navigate to="/" replace />} />
           <Route path="about" element={<About />} />
           <Route path="toolkit" element={<Toolkit />} />
           <Route path="gta-6" element={<Gta6 />} />
           <Route path="local" element={<Local />} />
           <Route path="login" element={<Login />} />
-          <Route path="app-login" element={<AppLogin />} />
+          <Route path="desktop/authorize" element={<AppLogin />} />
+          <Route path="app-login" element={<AppLoginRedirect />} />
           <Route path="signup" element={<Login />} />
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="plans" element={<Plans />} />

@@ -5,9 +5,10 @@ import { useAuth } from '../lib/auth'
 
 /**
  * Keeps app pages behind the right step of the flow:
- * signed out -> /login, no profile -> /onboarding, no plan -> /plans.
+ * signed out -> /login, no profile -> /onboarding. Every account has a plan:
+ * a verified paid plan or Free, so there is no plan step.
  */
-export function useRequireAuth({ onboarded = false, plan = false }: { onboarded?: boolean; plan?: boolean } = {}) {
+export function useRequireAuth({ onboarded = false }: { onboarded?: boolean } = {}) {
   const auth = useAuth()
   const navigate = useNavigate()
   const { user, loading } = auth
@@ -20,12 +21,8 @@ export function useRequireAuth({ onboarded = false, plan = false }: { onboarded?
     }
     if (onboarded && !user.onboardedAt) {
       navigate('/onboarding', { replace: true })
-      return
     }
-    if (plan && !user.planId) {
-      navigate('/plans', { replace: true })
-    }
-  }, [loading, user, navigate, onboarded, plan])
+  }, [loading, user, navigate, onboarded])
 
   return { ...auth, ready: !loading && !!user }
 }

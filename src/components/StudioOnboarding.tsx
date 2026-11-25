@@ -1,23 +1,29 @@
-import { ArrowRight, Check, Cloud, Download, Laptop, Layers, Link2, Lock, ScanFace, Sparkles, UploadCloud } from 'lucide-react'
+import { ArrowRight, Check, Cloud, Laptop, Layers, Link2, ScanFace, Sparkles, UploadCloud } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-import { Button, ButtonLink } from './Button'
+import { Button } from './Button'
 import { Modal } from './Overlay'
+import { Tag } from './Pill'
 import { cx } from '../lib/cx'
 
 export type StudioRuntime = 'cloud' | 'local' | 'both'
 
 const FEATURES = [
   { icon: Link2, title: 'Every source in one place', text: 'Connect a channel, paste a link or upload a file.' },
-  { icon: Sparkles, title: 'AI finds the moments', text: 'Transcribe, score and rank the clips worth posting.' },
+  { icon: Sparkles, title: 'Find the moments', text: 'Transcribe, score and rank the clips worth posting.' },
   { icon: ScanFace, title: 'Edit for vertical', text: '9:16 preview, word-level captions and face-aware crops.' },
   { icon: UploadCloud, title: 'Export when ready', text: 'Download the MP4 and SRT, or publish to YouTube Shorts.' },
 ]
 
-const RUNTIMES: Array<{ id: StudioRuntime; title: string; text: string; icon: typeof Cloud }> = [
-  { id: 'cloud', title: 'Cloud', text: 'Clip Farm processes your videos on our servers. Nothing to install.', icon: Cloud },
-  { id: 'local', title: 'Local', text: 'Everything runs on this computer. Your source files never leave it.', icon: Laptop },
-  { id: 'both', title: 'Both', text: 'Use the cloud for long jobs and the desktop app when you want local control.', icon: Layers },
+/**
+ * Only Local exists today: the pipeline on the user's computer. Cloud and Both
+ * need a hosted processing service and verified payments, neither of which is
+ * built, so they are shown as coming soon and cannot be selected.
+ */
+const RUNTIMES: Array<{ id: StudioRuntime; title: string; text: string; icon: typeof Cloud; available: boolean }> = [
+  { id: 'local', title: 'Local', text: 'Runs in the Clipfarm pipeline on this computer. Your videos stay on it.', icon: Laptop, available: true },
+  { id: 'cloud', title: 'Cloud', text: 'Processing on Clipfarm servers, nothing to install.', icon: Cloud, available: false },
+  { id: 'both', title: 'Both', text: 'Cloud for long jobs, this computer for everything else.', icon: Layers, available: false },
 ]
 
 const readSession = (key: string) => {
@@ -46,25 +52,19 @@ const clearSession = (key: string) => {
 
 type Props = {
   open: boolean
-  paid: boolean
-  planName: string | null
   storageKey: string
   onClose: () => void
   onComplete: (runtime: StudioRuntime) => void
 }
 
-export function StudioOnboarding({ open, paid, planName, storageKey, onClose, onComplete }: Props) {
+export function StudioOnboarding({ open, storageKey, onClose, onComplete }: Props) {
   const stepKey = `${storageKey}.step`
-  const downloadKey = `${storageKey}.download`
   const [step, setStep] = useState<1 | 2>(() => (readSession(stepKey) === '2' ? 2 : 1))
-  const [runtime, setRuntime] = useState<StudioRuntime>('cloud')
-  const [downloadOpened, setDownloadOpened] = useState(() => readSession(downloadKey) === '1')
 
   useEffect(() => {
     if (!open) return
     setStep(readSession(stepKey) === '2' ? 2 : 1)
-    setDownloadOpened(readSession(downloadKey) === '1')
-  }, [open, stepKey, downloadKey])
+  }, [open, stepKey])
 
   function next() {
     setStep(2)
@@ -78,17 +78,14 @@ export function StudioOnboarding({ open, paid, planName, storageKey, onClose, on
 
   function finish() {
     clearSession(stepKey)
-    clearSession(downloadKey)
-    onComplete(paid ? runtime : 'local')
+    onComplete('local')
   }
 
-  const title = step === 1 ? 'Welcome to the new Studio' : paid ? 'Choose how to run Clip Farm' : 'Download the Clip Farm app first'
+  const title = step === 1 ? 'Welcome to the Studio' : 'Choose how Clipfarm runs'
   const description =
     step === 1
-      ? 'The Studio is new in this update.'
-      : paid
-        ? `You are on the ${planName ?? 'paid'} plan. Pick where Clip Farm should do the heavy lifting; you can change this later.`
-        : 'You need to download the Clip Farm app before you can clip and use the Studio. On the Free plan, Clip Farm runs locally on your computer.'
+      ? 'Everything from a long video to a captioned vertical clip, in one place.'
+      : 'Local is available today. Cloud and Both open later; you can switch when they do.'
 
   return (
     <Modal open={open} onClose={onClose} title={title} description={description} className="sm:max-w-xl">
@@ -115,81 +112,43 @@ export function StudioOnboarding({ open, paid, planName, storageKey, onClose, on
             </li>
           ))}
         </ul>
-      ) : paid ? (
-        <div className="flex flex-col gap-4">
-          <div role="radiogroup" aria-label="How to run Clip Farm" className="flex flex-col gap-2">
-            {RUNTIMES.map((option) => {
-              const selected = runtime === option.id
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setRuntime(option.id)}
-                  className={cx(
-                    'flex items-start gap-3 rounded-[var(--radius-md)] border p-3 text-left transition-colors',
-                    selected ? 'border-ink bg-sand' : 'border-line hover:border-line-strong',
-                  )}
-                >
-                  <span aria-hidden className={cx('grid size-9 shrink-0 place-items-center rounded-full', selected ? 'bg-ink text-white' : 'bg-sand text-accent-ink')}>
-                    <option.icon className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[0.9rem] font-semibold">{option.title}</span>
-                    <span className="block text-[0.8rem] leading-snug text-muted">{option.text}</span>
-                  </span>
-                  <span className={cx('mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-full border', selected ? 'border-ink bg-ink text-white' : 'border-line-strong text-transparent')}>
-                    <Check className="size-3" strokeWidth={3} />
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {runtime !== 'cloud' && (
-            <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-line bg-paper p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[0.8rem] leading-snug text-body">The desktop app is optional on your plan. The Studio still opens without it.</p>
-              <ButtonLink
-                to="/download"
-                variant="secondary"
-                size="sm"
-                className="shrink-0"
-                icon={<Download aria-hidden className="size-4" />}
-              >
-                Download the app
-              </ButtonLink>
-            </div>
-          )}
-        </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-start gap-3 rounded-[var(--radius-md)] bg-sand p-3.5">
-            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-paper text-accent-ink">
-              <Lock className="size-4" />
-            </span>
-            <p className="text-[0.84rem] leading-relaxed text-body">
-              The Studio stays locked on the Free plan until you have been through the download step. Desktop builds are coming soon; we cannot detect an installation automatically yet.
-            </p>
-          </div>
-
-          <ButtonLink
-            to="/download"
-            className="w-full"
-            icon={<Download aria-hidden className="size-4" />}
-            onClick={() => {
-              setDownloadOpened(true)
-              writeSession(downloadKey, '1')
-            }}
-          >
-            Download the app
-          </ButtonLink>
-
-          <p className={cx('text-[0.78rem] leading-relaxed', downloadOpened ? 'text-success' : 'text-muted')} role="status">
-            {downloadOpened
-              ? 'Download page opened. If the app is installed, continue. Otherwise install it first; automatic detection is not available yet.'
-              : 'Open the download page first. The button below unlocks after that step.'}
-          </p>
+        <div role="radiogroup" aria-label="How Clipfarm runs" className="flex flex-col gap-2">
+          {RUNTIMES.map((option) => {
+            const selected = option.id === 'local'
+            return (
+              <div
+                key={option.id}
+                role="radio"
+                aria-checked={selected}
+                aria-disabled={!option.available || undefined}
+                aria-labelledby={`runtime-${option.id}`}
+                aria-describedby={`runtime-${option.id}-text`}
+                tabIndex={selected ? 0 : -1}
+                className={cx(
+                  'flex items-start gap-3 rounded-[var(--radius-md)] border p-3 text-left',
+                  selected ? 'border-ink bg-sand' : 'border-line opacity-70',
+                )}
+              >
+                <span aria-hidden className={cx('grid size-9 shrink-0 place-items-center rounded-full', selected ? 'bg-ink text-white' : 'bg-sand text-muted')}>
+                  <option.icon className="size-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 text-[0.9rem] font-semibold">
+                    <span id={`runtime-${option.id}`}>{option.title}</span>
+                    {!option.available && <Tag tone="peach">Coming soon</Tag>}
+                  </span>
+                  <span id={`runtime-${option.id}-text`} className="block text-[0.8rem] leading-snug text-muted">
+                    {option.text}
+                    {!option.available && <span className="sr-only"> Coming soon, not available yet.</span>}
+                  </span>
+                </span>
+                <span className={cx('mt-0.5 grid size-4.5 shrink-0 place-items-center rounded-full border', selected ? 'border-ink bg-ink text-white' : 'border-line-strong text-transparent')}>
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -204,13 +163,7 @@ export function StudioOnboarding({ open, paid, planName, storageKey, onClose, on
             Next
           </Button>
         ) : (
-          <Button
-            onClick={finish}
-            disabled={!paid && !downloadOpened}
-            title={!paid && !downloadOpened ? 'Open the download page before entering the Studio' : undefined}
-          >
-            {paid ? 'Open Studio' : 'Enter Studio'}
-          </Button>
+          <Button onClick={finish}>Open Studio</Button>
         )}
       </div>
 

@@ -16,6 +16,8 @@ export type Plan = {
   featured?: boolean
 }
 
+export const planById = (id: string | null | undefined): Plan | null => PLANS.find((p) => p.id === id) ?? null
+
 export const PLANS: readonly Plan[] = [
   {
     id: 'starter',
@@ -24,7 +26,7 @@ export const PLANS: readonly Plan[] = [
     limit: 20,
     days: '20 clips a month',
     text: 'For solo streamers posting a few VODs a week who want a feed that never goes quiet.',
-    features: ['One VOD a week', 'Highlight finding + captions', '9:16 exports', '48-hour turnaround'],
+    features: ['20 clips a month', 'Highlight finding, captions and face tracking', '1080×1920 exports with SRT, VTT and ASS files'],
   },
   {
     id: 'creator',
@@ -33,7 +35,7 @@ export const PLANS: readonly Plan[] = [
     limit: 60,
     days: '60 clips a month',
     text: 'For growing channels posting daily across TikTok, Shorts and Reels.',
-    features: ['Everything in Starter', 'Three VODs a week', 'Face tracking + punch-ins', 'Audio cleanup', '24-hour turnaround'],
+    features: ['60 clips a month', 'Everything in Starter'],
     featured: true,
   },
   {
@@ -43,13 +45,29 @@ export const PLANS: readonly Plan[] = [
     limit: 200,
     days: '200 clips a month',
     text: 'For multi-channel networks and agencies clipping a whole roster.',
-    features: ['Everything in Creator', 'Unlimited VODs across channels', 'Revenue-share option', 'Dedicated editor on Slack', 'Weekly performance report'],
+    features: ['200 clips a month', 'Everything in Starter'],
   },
 ]
 
 export const isPlanId = (value: unknown): value is PlanId => PLANS.some((p) => p.id === value)
 
-export const planById = (id: string | null | undefined) => PLANS.find((p) => p.id === id) ?? null
+/**
+ * Paid plans only unlock after the server has verified a payment. There is no
+ * payment provider wired up yet, so checkout is closed: every account is on
+ * the Free allowance below, and `POST /api/auth/plan` refuses paid plans.
+ * Flip this only together with a verified-payment webhook.
+ */
+export const CHECKOUT_AVAILABLE = false
+
+/** What an account without a verified paid plan gets (matches /pricing). */
+export const FREE_PLAN = { name: 'Free', limit: 3, maxSourceMinutes: 15 } as const
+
+/** Clip allowance for an account: its verified paid plan, or Free. */
+export function allowanceFor(planId: PlanId | null | undefined): { name: string; limit: number; paid: boolean } {
+  const plan = planById(planId)
+  return plan ? { name: plan.name, limit: plan.limit, paid: true } : { name: FREE_PLAN.name, limit: FREE_PLAN.limit, paid: false }
+}
+
 
 export type Role = 'admin' | 'member'
 
@@ -67,10 +85,25 @@ export type PublicUser = {
   captionStyle: string | null
   cadence: string | null
   onboardedAt: string | null
+  /** Set only when a payment for this plan was verified on the server. Null means Free. */
   planId: PlanId | null
+  /** A paid plan the account picked before checkout existed. Not paid, unlocks nothing. */
+  requestedPlanId: PlanId | null
   billing: Billing | null
   planStartedAt: string | null
+  planVerifiedAt: string | null
+  /** Google profile picture (https, googleusercontent.com) or null: show initials. */
+  avatarUrl: string | null
+  /** How the account runs Clipfarm. Only 'local' can be saved while cloud is not built. */
+  workMode: WorkMode | null
+  termsVersion: string | null
+  privacyVersion: string | null
+  termsAcceptedAt: string | null
 }
+
+export const WORK_MODES = ['local', 'cloud', 'both'] as const
+export type WorkMode = (typeof WORK_MODES)[number]
+export const isWorkMode = (value: unknown): value is WorkMode => WORK_MODES.includes(value as WorkMode)
 
 export const BILLINGS = ['monthly', 'quarterly'] as const
 export type Billing = (typeof BILLINGS)[number]

@@ -1,7 +1,7 @@
-import { Check, Minus } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 
-import { ArrowLink, ButtonLink } from '../components/Button'
+import { ArrowLink } from '../components/Button'
 import { Card } from '../components/Card'
 import { CheckList } from '../components/CheckItem'
 import { Container } from '../components/Container'
@@ -53,7 +53,10 @@ export function Services() {
                       <ServiceIcon icon={s.icon} />
                       <span className="text-[0.875rem] font-semibold text-muted">{String(i + 1).padStart(2, '0')}</span>
                     </div>
-                    <h2 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">{s.title}</h2>
+                    <h2 className="flex flex-wrap items-center gap-3 text-[1.75rem] leading-tight font-semibold tracking-[-0.03em]">
+                      {s.title}
+                      {s.soon && <Tag tone="peach">Coming soon</Tag>}
+                    </h2>
                     <p className="text-[1rem] leading-relaxed text-body">{s.summary}</p>
                   </div>
                   <div className="flex flex-col gap-4">
@@ -99,7 +102,6 @@ export function Services() {
                 <Card key={p.id} tone={p.featured ? 'ink' : 'paper'} className="flex flex-col gap-6">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[1.4rem] font-semibold tracking-[-0.025em]">{p.name}</h3>
-                    {p.featured && <Tag tone="peach">Most chosen</Tag>}
                   </div>
                   <div>
                     <p className="flex items-baseline gap-1.5">
@@ -121,69 +123,24 @@ export function Services() {
                     ))}
                   </ul>
                   <div className="mt-auto pt-2">
-                    {p.featured ? (
-                      <ArrowLink to={`/signup?plan=${p.id}`} tone="light" className="w-full justify-between">
-                        Start free
-                      </ArrowLink>
-                    ) : (
-                      <ButtonLink to={`/signup?plan=${p.id}`} variant="secondary" className="w-full">
-                        Start free
-                      </ButtonLink>
-                    )}
+                    <button
+                      type="button"
+                      disabled
+                      className={cx(
+                        'inline-flex h-12 w-full cursor-not-allowed items-center justify-center rounded-full border text-[0.95rem] font-semibold',
+                        p.featured ? 'border-white/25 text-white/70' : 'border-line-strong bg-sand text-muted',
+                      )}
+                    >
+                      Checkout coming soon
+                    </button>
                   </div>
                 </Card>
               )
             })}
           </div>
-          <p className="mt-6 text-center text-[0.875rem] text-muted">{ENGAGEMENTS.note}</p>
-        </Container>
-      </section>
-
-      <section className="py-16">
-        <Container>
-          <SectionHeading eyebrow="Compare" title={SERVICES_PAGE.compareTitle} />
-          <div role="region" aria-label="Comparison table" tabIndex={0} className="mt-10 overflow-x-auto rounded-[var(--radius-lg)] bg-paper shadow-[var(--shadow-card)]">
-            <table className="w-full min-w-[640px] text-left text-[0.95rem]">
-              <caption className="sr-only">Clipfarm compared with an editing agency and doing it yourself</caption>
-              <thead>
-                <tr className="border-b border-line">
-                  <th scope="col" className="p-5 font-semibold text-muted">
-                    <span className="sr-only">Criterion</span>
-                  </th>
-                  <th scope="col" className="bg-peach/60 p-5 font-semibold">
-                    Clipfarm
-                  </th>
-                  <th scope="col" className="p-5 font-semibold">
-                    Editing agency
-                  </th>
-                  <th scope="col" className="p-5 font-semibold">
-                    You, at 2am
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {SERVICES_PAGE.compare.map((row) => (
-                  <tr key={row.label} className="border-b border-line last:border-0">
-                    <th scope="row" className="p-5 font-semibold">
-                      {row.label}
-                    </th>
-                    <td className="bg-peach/60 p-5 font-medium">
-                      <span className="inline-flex items-center gap-2">
-                        <Check aria-hidden className="size-4 text-accent-ink" strokeWidth={3} />
-                        {row.us}
-                      </span>
-                    </td>
-                    <td className="p-5 text-body">
-                      <span className="inline-flex items-center gap-2">
-                        <Minus aria-hidden className="size-4 text-muted" />
-                        {row.agency}
-                      </span>
-                    </td>
-                    <td className="p-5 text-body">{row.diy}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-8 flex flex-col items-center gap-3">
+            <ArrowLink to="/signup">Start on Free</ArrowLink>
+            <p className="text-center text-[0.875rem] text-muted">{ENGAGEMENTS.note}</p>
           </div>
         </Container>
       </section>

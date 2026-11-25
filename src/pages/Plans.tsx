@@ -1,44 +1,27 @@
 import { Check } from 'lucide-react'
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
 
 import { AppLoading, useRequireAuth } from '../components/AuthGate'
-import { ArrowLink, Button } from '../components/Button'
+import { ArrowLink } from '../components/Button'
 import { Card } from '../components/Card'
 import { Container } from '../components/Container'
 import { Notice } from '../components/Field'
 import { Eyebrow, Tag } from '../components/Pill'
 import { Segmented } from '../components/Segmented'
-import { useToast } from '../components/Toast'
 import { usePageTitle } from '../lib/title'
 import { cx } from '../lib/cx'
 import { useRegion } from '../lib/region'
-import { BILLINGS, PLANS, priceFor, type Billing, type PlanId } from '../shared/account'
+import { BILLINGS, CHECKOUT_AVAILABLE, FREE_PLAN, planById, PLANS, priceFor, type Billing } from '../shared/account'
 
 export function Plans() {
   usePageTitle('Choose your plan')
-  const { user, ready, choosePlan } = useRequireAuth({ onboarded: true })
-  const navigate = useNavigate()
-  const toast = useToast()
+  const { user, ready } = useRequireAuth({ onboarded: true })
   const { format, currency } = useRegion()
   const [billing, setBilling] = useState<Billing>(user?.billing ?? 'monthly')
-  const [chosen, setChosen] = useState<PlanId | null>(null)
-  const [error, setError] = useState('')
 
   if (!ready || !user) return <AppLoading label="Loading your plans" rows={2} />
 
-  const pick = async (planId: PlanId) => {
-    setError('')
-    setChosen(planId)
-    const res = await choosePlan(planId, billing)
-    if (!res.ok) {
-      setError(res.error)
-      setChosen(null)
-      return
-    }
-    toast(`You’re on ${res.user.planId === 'starter' ? 'Starter' : res.user.planId === 'creator' ? 'Creator' : 'Network'}`)
-    navigate('/dashboard')
-  }
+  const requested = planById(user.requestedPlanId)
 
   return (
     <section className="relative -mt-[84px] overflow-hidden pt-[130px] pb-24 sm:-mt-[100px] sm:pt-[160px]">
@@ -46,10 +29,12 @@ export function Plans() {
       <div aria-hidden className="hero-glow absolute inset-x-0 bottom-0 h-[55%] opacity-60" />
       <Container className="relative">
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-5 text-center">
-          <Eyebrow>Setup · step 2 of 2</Eyebrow>
-          <h1 className="text-[2.6rem] leading-[1.03] font-semibold tracking-[-0.04em] text-balance sm:text-[3.4rem]">Choose the plan that fits your channel</h1>
+          <Eyebrow>Plans</Eyebrow>
+          <h1 className="text-[2.6rem] leading-[1.03] font-semibold tracking-[-0.04em] text-balance sm:text-[3.4rem]">Plans for every channel size</h1>
           <p className="text-[1.0625rem] leading-relaxed text-body">
-            Every plan starts with one free VOD. Change or cancel any time; quarterly billing saves 20%.
+            {CHECKOUT_AVAILABLE
+              ? 'Quarterly billing saves 20%.'
+              : `Paid plans open when checkout launches. Until then your account is on Free: ${FREE_PLAN.limit} clips a month, nothing to pay.`}
           </p>
           <Segmented<Billing>
             label="Billing period"
@@ -62,7 +47,11 @@ export function Plans() {
           />
         </div>
 
-        {error && <Notice className="mx-auto mt-8 max-w-lg">{error}</Notice>}
+        {requested && !user.planId && (
+          <Notice tone="info" className="mx-auto mt-8 max-w-xl">
+            You picked {requested.name} earlier. It is not active and nothing was charged, because checkout is not available yet. You are on the Free plan.
+          </Notice>
+        )}
 
         <div className="mt-10 grid gap-5 lg:grid-cols-3">
           {PLANS.map((plan) => {
@@ -73,7 +62,7 @@ export function Plans() {
               <Card key={plan.id} tone={featured ? 'ink' : 'paper'} className="flex flex-col gap-6">
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="text-[1.4rem] font-semibold tracking-[-0.025em]">{plan.name}</h2>
-                  {featured ? <Tag tone="peach">Most chosen</Tag> : current ? <Tag>Current plan</Tag> : null}
+                  {current ? <Tag tone="peach">Current plan</Tag> : null}
                 </div>
                 <div>
                   <p className="flex items-baseline gap-1.5">
@@ -99,14 +88,17 @@ export function Plans() {
                     <ArrowLink to="/dashboard" tone="light" className="w-full justify-between">
                       Go to dashboard
                     </ArrowLink>
-                  ) : featured ? (
-                    <Button variant="light" className="w-full" loading={chosen === plan.id} onClick={() => pick(plan.id)}>
-                      Choose {plan.name}
-                    </Button>
                   ) : (
-                    <Button variant="secondary" className="w-full" loading={chosen === plan.id} onClick={() => pick(plan.id)}>
-                      Choose {plan.name}
-                    </Button>
+                    <button
+                      type="button"
+                      disabled
+                      className={cx(
+                        'inline-flex h-12 w-full cursor-not-allowed items-center justify-center gap-2 rounded-full border text-[0.95rem] font-semibold',
+                        featured ? 'border-white/25 text-white/70' : 'border-line-strong bg-sand text-muted',
+                      )}
+                    >
+                      Checkout coming soon
+                    </button>
                   )}
                 </div>
               </Card>
@@ -114,9 +106,10 @@ export function Plans() {
           })}
         </div>
 
-        <p className="mt-8 text-center text-[0.875rem] text-muted">
-          Prices shown in {currency}, charged in USD at checkout. Your first VOD pass is free, so you can see the clips before you pay.
-        </p>
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <ArrowLink to="/dashboard">Continue on Free</ArrowLink>
+          <p className="text-center text-[0.875rem] text-muted">Prices shown in {currency}. Paid plans will be charged in USD.</p>
+        </div>
       </Container>
     </section>
   )

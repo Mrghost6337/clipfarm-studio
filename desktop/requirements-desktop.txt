@@ -1,0 +1,18 @@
+# Python packages bundled into the Windows app's pipeline runtime.
+# Pinned to the versions the pipeline tests ran with (see pipeline/tests).
+faster-whisper==1.2.1
+ctranslate2==4.9.1
+onnxruntime==1.32.0
+av==19.0.2
+numpy==2.5.5
+opencv-python-headless==5.1.0.95
+yt-dlp==2026.11.23
+# YouTube's JS challenges: yt-dlp runs these with the bundled Deno.
+yt-dlp-ejs==0.8.0
+fastapi==0.165.0
+starlette==1.10.0
+pydantic==2.14.4
+uvicorn==0.54.0
+python-multipart==0.0.34
+google-api-python-client==2.202.0
+google-auth-oauthlib==1.5.0

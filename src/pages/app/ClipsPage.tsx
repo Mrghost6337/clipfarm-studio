@@ -23,7 +23,7 @@ type Filter = (typeof STATUSES)[number]['value']
 
 export function ClipsPage() {
   usePageTitle('Clips')
-  const { ready } = useRequireAuth({ onboarded: true, plan: true })
+  const { ready } = useRequireAuth({ onboarded: true })
   const [clips, setClips] = useState<Clip[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

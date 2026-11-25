@@ -92,7 +92,7 @@ export const RATES: Record<CurrencyCode, number> = {
   SAR: 3.75,
 }
 
-export const RATES_NOTE = 'Indicative rates, updated November 2026. Plans are billed in USD and your bank converts at checkout.'
+export const RATES_NOTE = 'Indicative rates, updated November 2026. Plans are priced in USD.'
 
 export type LocaleSettings = { country: string; language: string; currency: CurrencyCode }
 

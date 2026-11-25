@@ -27,6 +27,7 @@ import {
   Trash2,
   Undo2,
   UploadCloud,
+  FolderOpen,
   Video,
   Wand2,
   X,
@@ -40,7 +41,8 @@ import { Logo } from '../components/Logo'
 import { Drawer } from '../components/Overlay'
 import { useToast } from '../components/Toast'
 import { cx } from '../lib/cx'
-import { fileUrl, PIPELINE_API, pipelineApi, stamp, statusLabel, type PipelineClip, type PipelineJob, type PipelineListing } from '../lib/pipeline'
+import { PipelineConnect, usePipelineStatus } from '../components/PipelineConnect'
+import { connectPipeline, eventsUrl, fileUrl, pipelineApi, stamp, statusLabel, type PipelineClip, type PipelineJob, type PipelineListing } from '../lib/pipeline'
 import { usePageTitle } from '../lib/title'
 
 type SourceTab = 'channels' | 'link' | 'upload'
@@ -96,6 +98,8 @@ export function Studio() {
   usePageTitle('Studio')
   const toast = useToast()
   const [online, setOnline] = useState<boolean | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const pipeline = usePipelineStatus()
   const [jobs, setJobs] = useState<PipelineJob[]>([])
   const [activeId, setActiveId] = useState('')
   const [clipId, setClipId] = useState('')
@@ -148,18 +152,24 @@ export function Studio() {
     try {
       const list = await pipelineApi<PipelineJob[]>('/jobs?limit=40')
       setOnline(true)
+      setFailure(null)
       setJobs(list)
       setActiveId((current) => (current && list.some((job) => job.id === current) ? current : list[0]?.id ?? ''))
       const status = await pipelineApi<{ youtube: { configured: boolean; note: string } }>('/posting/status').catch(() => null)
       if (status) setPosting(status)
-    } catch {
+    } catch (error) {
       setOnline(false)
+      setFailure(error instanceof Error ? error.message : null)
     }
   }, [])
 
   useEffect(() => {
-    void loadJobs()
-  }, [loadJobs])
+    void connectPipeline()
+  }, [])
+
+  useEffect(() => {
+    if (pipeline.state === 'ready') void loadJobs()
+  }, [pipeline.state, loadJobs])
 
   useEffect(() => {
     if (!result) {
@@ -191,7 +201,7 @@ export function Studio() {
 
   useEffect(() => {
     if (!activeJob || !running) return
-    const source = new EventSource(`${PIPELINE_API}/jobs/${activeJob.id}/events`)
+    const source = new EventSource(eventsUrl(activeJob.id))
     source.onmessage = (event) => {
       const next = JSON.parse(event.data) as PipelineJob
       setJobs((current) => current.map((job) => (job.id === next.id ? next : job)))
@@ -278,11 +288,11 @@ export function Studio() {
     }
   }
 
-  async function startJob(url: string) {
+  async function startJob(url: string, title?: string) {
     setBusy(true)
     setError('')
     try {
-      const job = await pipelineApi<PipelineJob>('/jobs', { method: 'POST', body: JSON.stringify({ url, preset, maxClips: 5 }) })
+      const job = await pipelineApi<PipelineJob>('/jobs', { method: 'POST', body: JSON.stringify({ url, title, preset, maxClips: 5 }) })
       setJobs((current) => [job, ...current])
       setActiveId(job.id)
       setClipId('')
@@ -301,8 +311,8 @@ export function Studio() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const uploaded = await pipelineApi<{ path: string }>('/upload', { method: 'POST', body: form })
-      await startJob(uploaded.path)
+      const uploaded = await pipelineApi<{ path: string; name: string | null }>('/upload', { method: 'POST', body: form })
+      await startJob(uploaded.path, uploaded.name?.replace(/\.[^.]+$/, '') || undefined)
       toast('Upload received. The local pipeline is starting.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Upload failed.')
@@ -504,6 +514,12 @@ export function Studio() {
                 </span>
               )}
               {dirty && <span className="hidden h-6 items-center rounded-full bg-peach px-2 text-[0.68rem] font-semibold text-accent-ink sm:inline-flex">Unsaved style</span>}
+              {pipeline.state === 'ready' && pipeline.mode === 'paired' && (
+                <span className="hidden h-7 shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 text-[0.72rem] font-semibold text-success md:inline-flex" title={pipeline.base}>
+                  <span aria-hidden className="round size-1.5 rounded-full bg-success" />
+                  {pipeline.host === 'desktop' ? 'Connected to desktop app' : 'Connected to local pipeline'}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <IconButton aria-label="Undo" title="Nothing to undo yet" disabled className="hidden size-9 sm:grid">
@@ -518,6 +534,18 @@ export function Studio() {
               <Button variant="secondary" size="sm" className="hidden lg:inline-flex" disabled={!clip} onClick={() => (clip ? downloadFile(fileUrl(clip.files.mp4), `${clip.id}-clip.mp4`) : undefined)} icon={<Download className="size-4" />} title={clip ? 'Download the rendered MP4' : 'Render a clip first'}>
                 Export
               </Button>
+              {typeof window !== 'undefined' && (window as { clipfarm?: unknown }).clipfarm && clip ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden lg:inline-flex"
+                  icon={<FolderOpen className="size-4" />}
+                  onClick={() => void (window as unknown as { clipfarm: { invoke: (c: string, a: string) => Promise<boolean> } }).clipfarm.invoke('shell:show-file', clip.files.mp4)}
+                  title="Show the rendered MP4 in its folder"
+                >
+                  Show in folder
+                </Button>
+              ) : null}
               <Button size="sm" disabled={!clip} onClick={() => openInspector('publish')} title={clip ? 'Open publish settings' : 'Render a clip first'}>
                 Publish
               </Button>
@@ -570,17 +598,9 @@ export function Studio() {
           )}
         </header>
 
-        {online === false ? (
+        {pipeline.state !== 'ready' || online === false ? (
           <div className="grid flex-1 place-items-center p-6">
-            <div className="max-w-lg rounded-[var(--radius-lg)] border border-line bg-paper p-7 shadow-[var(--shadow-card)]">
-              <div className="flex items-center gap-2 text-[0.72rem] font-semibold tracking-[0.08em] text-danger uppercase">
-                <AlertTriangle className="size-3.5" /> Pipeline offline
-              </div>
-              <h1 className="mt-2 text-[1.4rem] font-semibold tracking-[-0.03em]">Start the local service to use the Studio</h1>
-              <p className="mt-1 text-[0.9rem] leading-relaxed text-body">The hosted app cannot run ffmpeg, Whisper or yt-dlp. Start the pipeline on this machine, then reload.</p>
-              <pre className="mt-4 overflow-x-auto rounded-[var(--radius-md)] bg-ink p-4 text-[0.76rem] leading-relaxed text-white">{`.venv/bin/python -m pipeline.cli serve\n# then open http://localhost:3000/studio`}</pre>
-              <Button className="mt-4" onClick={() => void loadJobs()}>Retry connection</Button>
-            </div>
+            <PipelineConnect failure={pipeline.state === 'ready' ? failure : null} onRetry={() => setOnline(null)} />
           </div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]">

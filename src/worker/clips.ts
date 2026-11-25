@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-import { planById, priceFor, PLANS, type PlanId, type PublicUser } from '../shared/account'
+import { allowanceFor, priceFor, PLANS, type PlanId, type PublicUser } from '../shared/account'
 import {
   detectFromChapters,
   detectFromTranscript,
@@ -43,6 +43,11 @@ async function migrate(db: D1Like) {
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_clips_user ON clips (user_id, created_at)').run()
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_sources_user ON sources (user_id, created_at)').run()
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_events_clip ON clip_events (clip_id, kind)').run()
+  // Clips the desktop app made locally are synced here too (details only, no video).
+  const sourceColumns = new Set(((await db.prepare('PRAGMA table_info(sources)').all<{ name: string }>()).results ?? []).map((row) => row.name))
+  if (!sourceColumns.has('local_job_id')) await db.prepare('ALTER TABLE sources ADD COLUMN local_job_id TEXT').run()
+  const clipColumns = new Set(((await db.prepare('PRAGMA table_info(clips)').all<{ name: string }>()).results ?? []).map((row) => row.name))
+  if (!clipColumns.has('origin')) await db.prepare("ALTER TABLE clips ADD COLUMN origin TEXT NOT NULL DEFAULT 'cloud'").run()
 }
 
 export function ensureClipsSchema(db: D1Like) {
@@ -428,16 +433,20 @@ const monthStart = () => {
 }
 
 async function clipsThisMonth(db: D1Like, userId: string) {
-  const row = await db.prepare('SELECT COUNT(*) AS n FROM clips WHERE user_id = ? AND created_at >= ?').bind(userId, monthStart()).first<{ n: number }>()
+  // Clips rendered on the user's own PC do not use the plan allowance.
+  const row = await db.prepare("SELECT COUNT(*) AS n FROM clips WHERE user_id = ? AND created_at >= ? AND origin != 'local'").bind(userId, monthStart()).first<{ n: number }>()
   return Number(row?.n ?? 0)
 }
 
+/** Verified paid plan or the Free allowance. Unpaid plan picks unlock nothing. */
 async function remainingFor(db: D1Like, user: PublicUser) {
-  const plan = planById(user.planId)
-  if (!plan) return { plan: null, used: 0, remaining: 0 }
+  const plan = allowanceFor(user.planId)
   const used = await clipsThisMonth(db, user.id)
   return { plan, used, remaining: Math.max(0, plan.limit - used) }
 }
+
+const limitMessage = (plan: { name: string; limit: number; paid: boolean }) =>
+  `You have used all ${plan.limit} clips on the ${plan.name} plan this month. The allowance resets on the 1st.`
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -481,9 +490,8 @@ app.post('/', async (c) => {
   if ('error' in ref) return c.json({ error: ref.error }, 400)
 
   const allowance = await remainingFor(c.env.DB, user)
-  if (!allowance.plan) return c.json({ error: 'Choose a plan before analyzing a VOD.' }, 403)
   if (allowance.remaining <= 0) {
-    return c.json({ error: `You have used all ${allowance.plan.limit} clips on the ${allowance.plan.name} plan this month. Upgrade to keep clipping.`, used: allowance.used, limit: allowance.plan.limit }, 409)
+    return c.json({ error: limitMessage(allowance.plan), used: allowance.used, limit: allowance.plan.limit }, 409)
   }
 
   const sourceId = crypto.randomUUID()
@@ -545,8 +553,7 @@ app.post('/sources/:id/transcript', async (c) => {
   if (cues.length < 4) return c.json({ error: 'Paste a transcript with at least four timed lines (VTT, SRT or “0:12 text” lines).' }, 400)
 
   const allowance = await remainingFor(c.env.DB, user)
-  if (!allowance.plan) return c.json({ error: 'Choose a plan first.' }, 403)
-  if (allowance.remaining <= 0) return c.json({ error: `You have used all ${allowance.plan.limit} clips this month.`, used: allowance.used, limit: allowance.plan.limit }, 409)
+  if (allowance.remaining <= 0) return c.json({ error: limitMessage(allowance.plan), used: allowance.used, limit: allowance.plan.limit }, 409)
 
   const detection: Detection = { method: 'transcript', clips: detectFromTranscript(cues, Math.min(allowance.remaining, MAX_CLIPS_PER_RUN)) }
   if (!detection.clips.length) return c.json({ error: 'Those timings did not produce a clip. Check the transcript has timestamps.' }, 422)
@@ -710,7 +717,7 @@ function buildSeries(clips: Clip[], events: Array<{ day: string; views: number }
 export async function buildDashboard(db: D1Like, user: PublicUser, now = new Date()): Promise<DashboardData> {
   const clips = await listClips(db, user.id, 500)
   const sources = await listSources(db, user.id)
-  const plan = planById(user.planId)
+  const plan = allowanceFor(user.planId)
 
   const viewRows = await db
     .prepare(`SELECT substr(e.created_at, 1, 10) AS day, COUNT(*) AS views FROM clip_events e JOIN clips c ON c.id = e.clip_id WHERE c.user_id = ? AND e.kind = 'view' GROUP BY day`)
@@ -736,7 +743,7 @@ export async function buildDashboard(db: D1Like, user: PublicUser, now = new Dat
     clips: clips.filter((clip) => clip.platform === name).length,
   }))
 
-  const renewsAt = user.planStartedAt ? new Date(new Date(user.planStartedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null
+  const renewsAt = user.planId && user.planStartedAt ? new Date(new Date(user.planStartedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null
 
   const activity: DashboardData['activity'] = [
     ...sources.slice(0, 6).map((source) => ({
@@ -785,30 +792,47 @@ export async function buildDashboard(db: D1Like, user: PublicUser, now = new Dat
       sourceThumbnail,
     })),
     sources: sources.slice(0, 5).map(({ id, title, platform, status, clips: count, duration, createdAt, thumbnail, method }) => ({ id, title, platform, status, clips: count, duration, createdAt, thumbnail, method })),
-    usage: { used, limit: plan?.limit ?? 0, planName: plan?.name ?? null, renewsAt },
+    usage: { used, limit: plan.limit, planName: plan.name, renewsAt },
     activity,
   }
 
   if (user.role === 'admin') {
-    const rows = await db.prepare('SELECT id, name, email, plan_id, role, created_at FROM users ORDER BY created_at DESC').all<{ id: string; name: string; email: string; plan_id: string | null; role: string; created_at: string }>()
+    type AccountRow = { id: string; name: string; email: string; plan_id: string | null; billing: string | null; plan_started_at: string | null; plan_verified_at: string | null; role: string; created_at: string }
+    const rows = await db
+      .prepare('SELECT id, name, email, plan_id, billing, plan_started_at, plan_verified_at, role, created_at FROM users ORDER BY created_at DESC')
+      .all<AccountRow>()
     const accounts = rows.results ?? []
     const totals = await db.prepare('SELECT (SELECT COUNT(*) FROM clips) AS clips, (SELECT COUNT(*) FROM sources) AS sources').first<{ clips: number; sources: number }>()
+    const planOf = (row: AccountRow) => PLANS.find((item) => item.id === (row.plan_id as PlanId | null)) ?? null
+    const verified = accounts.filter((row) => row.plan_verified_at && planOf(row))
+    const unverified = accounts.filter((row) => !row.plan_verified_at && planOf(row))
+    const monthly = (row: AccountRow) => {
+      const rowPlan = planOf(row)
+      return rowPlan ? priceFor(rowPlan, row.billing === 'quarterly' ? 'quarterly' : 'monthly') : 0
+    }
     const recent: AdminUser[] = accounts.slice(0, 5).map((row) => ({
       id: row.id,
       name: row.name,
       email: row.email,
-      plan: PLANS.find((item) => item.id === row.plan_id)?.name ?? null,
+      plan: row.plan_verified_at ? planOf(row)?.name ?? null : null,
+      requestedPlan: row.plan_verified_at ? null : planOf(row)?.name ?? null,
       role: row.role,
       createdAt: row.created_at,
     }))
-    const mrr = accounts.reduce((total, row) => {
-      const rowPlan = PLANS.find((item) => item.id === (row.plan_id as PlanId | null))
-      return total + (rowPlan ? priceFor(rowPlan, 'monthly') : 0)
-    }, 0)
     data.admin = {
       accounts: accounts.length,
-      paidAccounts: accounts.filter((row) => row.plan_id).length,
-      mrr,
+      // Revenue counts verified payments only. Nothing verifies payments yet.
+      paidAccounts: verified.length,
+      mrr: verified.reduce((total, row) => total + monthly(row), 0),
+      unverifiedPlans: unverified.map((row) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        plan: planOf(row)!.name,
+        billing: row.billing === 'quarterly' ? 'quarterly' : 'monthly',
+        selectedAt: row.plan_started_at,
+        monthly: monthly(row),
+      })),
       clips: Number(totals?.clips ?? 0),
       sources: Number(totals?.sources ?? 0),
       recent,
@@ -819,3 +843,68 @@ export async function buildDashboard(db: D1Like, user: PublicUser, now = new Dat
 }
 
 export default app
+
+// ---------------------------------------------------------------------------
+// Desktop sync: clip details from a finished local job. Video files stay on the
+// user's PC; only what the library and share pages need is stored.
+// ---------------------------------------------------------------------------
+
+const LOCAL_JOB_RE = /^[a-f0-9]{12}$/
+const num = (value: unknown, min: number, max: number) => (typeof value === 'number' && Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : null)
+const text = (value: unknown, max: number) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
+
+app.post('/import', async (c) => {
+  const user = await currentUser(c)
+  if (!user) return c.json({ error: 'Log in first.' }, 401)
+  const input = await readJson(c.req.raw)
+  const jobId = text(input.jobId, 20)
+  if (!LOCAL_JOB_RE.test(jobId)) return c.json({ error: 'Unknown job.' }, 400)
+  const rawClips = Array.isArray(input.clips) ? input.clips.slice(0, 20) : []
+  const clipRows = rawClips
+    .map((raw: unknown) => {
+      const item = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+      const start = num(item.start, 0, 86_400)
+      const end = num(item.end, 0, 86_400)
+      if (start === null || end === null || end <= start) return null
+      const cues = (Array.isArray(item.cues) ? item.cues.slice(0, 400) : [])
+        .map((cue: unknown) => {
+          const entry = (cue && typeof cue === 'object' ? cue : {}) as Record<string, unknown>
+          const cueStart = num(entry.start, 0, 86_400)
+          const cueEnd = num(entry.end, 0, 86_400)
+          const words = text(entry.text, 300)
+          return cueStart === null || cueEnd === null || !words ? null : { start: cueStart, end: cueEnd, text: words }
+        })
+        .filter(Boolean)
+      return { title: text(item.title, 200) || 'Untitled clip', start, end, score: Math.round(num(item.score, 0, 100) ?? 0), excerpt: text(item.excerpt, 600), cues }
+    })
+    .filter((row: unknown) => row !== null) as Array<{ title: string; start: number; end: number; score: number; excerpt: string; cues: unknown[] }>
+  if (!clipRows.length) return c.json({ error: 'No clips to sync.' }, 400)
+
+  // A web link is kept as is; an uploaded file is recorded by name only, never by its path on the PC.
+  const rawUrl = text(input.url, MAX_URL)
+  const ref = /^https?:\/\//.test(rawUrl) ? parseSourceUrl(rawUrl) : null
+  const url = ref && !('error' in ref) ? ref.url : `upload:${text(input.fileName, 120) || 'video'}`
+  const platform = ref && !('error' in ref) ? ref.platform : 'Upload'
+  const externalId = ref && !('error' in ref) ? ref.id : null
+  const thumbnail = /^https:\/\//.test(text(input.thumbnail, 600)) ? text(input.thumbnail, 600) : null
+  const title = text(input.title, 200) || 'Local video'
+  const duration = Math.round(num(input.duration, 0, 86_400) ?? 0)
+  const now = new Date().toISOString()
+
+  const existing = await c.env.DB.prepare('SELECT id FROM sources WHERE user_id = ? AND local_job_id = ?').bind(user.id, jobId).first<{ id: string }>()
+  const sourceId = existing?.id ?? crypto.randomUUID()
+  if (existing) {
+    await c.env.DB.prepare("DELETE FROM clips WHERE source_id = ? AND user_id = ? AND origin = 'local'").bind(sourceId, user.id).run()
+    await c.env.DB.prepare('UPDATE sources SET title = ?, thumbnail = ?, duration = ?, analyzed_at = ? WHERE id = ?').bind(title, thumbnail, duration, now, sourceId).run()
+  } else {
+    await c.env.DB.prepare("INSERT INTO sources (id, user_id, url, platform, external_id, title, author, thumbnail, duration, status, method, error, created_at, analyzed_at, local_job_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready', 'local', NULL, ?, ?, ?)")
+      .bind(sourceId, user.id, url, platform, externalId, title, text(input.author, 120) || null, thumbnail, duration, now, now, jobId)
+      .run()
+  }
+  for (const clip of clipRows) {
+    await c.env.DB.prepare("INSERT INTO clips (id, user_id, source_id, title, start_sec, end_sec, score, excerpt, cues, status, created_at, origin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ready', ?, 'local')")
+      .bind(crypto.randomUUID(), user.id, sourceId, clip.title, clip.start, clip.end, clip.score, clip.excerpt, JSON.stringify(clip.cues), now)
+      .run()
+  }
+  return c.json({ ok: true, sourceId, clips: clipRows.length }, existing ? 200 : 201)
+})

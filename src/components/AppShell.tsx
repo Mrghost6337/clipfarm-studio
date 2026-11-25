@@ -5,7 +5,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../lib/auth'
 import { cx } from '../lib/cx'
 import { useRegion } from '../lib/region'
-import { planById, priceFor } from '../shared/account'
+import { allowanceFor, planById, priceFor } from '../shared/account'
 import { IconButton } from './Button'
 import { Logo } from './Logo'
 import { Drawer } from './Overlay'
@@ -47,6 +47,7 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const plan = planById(user?.planId)
+  const allowance = allowanceFor(user?.planId)
   const { format } = useRegion()
   const initials = user?.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase() ?? ''
 
@@ -75,10 +76,10 @@ export function AppShell() {
           <div className="mt-auto flex flex-col gap-3">
             <div className="rounded-[var(--radius-md)] border border-line bg-sand p-3.5">
               <p className="text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase">Plan</p>
-              <p className="mt-1 text-[0.95rem] font-semibold">{plan ? `${plan.name} · ${format(priceFor(plan, user?.billing ?? 'monthly'))}/mo` : 'No plan yet'}</p>
-              <p className="text-[0.75rem] text-muted">{plan ? `${plan.limit} clips a month` : '20 to 200 clips a month'}</p>
+              <p className="mt-1 text-[0.95rem] font-semibold">{plan ? `${plan.name} · ${format(priceFor(plan, user?.billing ?? 'monthly'))}/mo` : allowance.name}</p>
+              <p className="text-[0.75rem] text-muted">{allowance.limit} clips a month</p>
               <Link to="/plans" className="mt-1 inline-flex items-center gap-1 text-[0.82rem] font-semibold text-accent-ink underline decoration-2 underline-offset-4">
-                {plan ? 'Manage plan' : 'Choose a plan'}
+                {plan ? 'Manage plan' : 'See plans'}
               </Link>
             </div>
             <div className="flex items-center gap-2.5 rounded-[var(--radius-md)] px-1 py-1">

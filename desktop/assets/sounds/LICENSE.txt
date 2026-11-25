@@ -1,0 +1,9 @@
+Clipfarm Studio interface sounds: intro.ogg, check.ogg, ready.ogg, start.ogg
+
+Original work, generated from scratch by desktop/scripts/make-sounds.py
+(sine oscillators, filtered noise and a synthetic reverb; no samples, no
+third-party recordings). Created for Clipfarm Studio in November 2026.
+
+Owned by the Clipfarm Studio project and dedicated to the public domain under
+CC0 1.0 (https://creativecommons.org/publicdomain/zero/1.0/), so they can be
+used without attribution and regenerated at any time with the script.

@@ -9,7 +9,10 @@ export type DashboardClip = Pick<Clip, 'id' | 'title' | 'score' | 'start' | 'end
 
 export type DashboardSource = Pick<ClipSource, 'id' | 'title' | 'platform' | 'status' | 'clips' | 'duration' | 'createdAt' | 'thumbnail' | 'method'>
 
-export type AdminUser = { id: string; name: string; email: string; plan: string | null; role: string; createdAt: string }
+export type AdminUser = { id: string; name: string; email: string; plan: string | null; requestedPlan: string | null; role: string; createdAt: string }
+
+/** An account that picked a paid plan before checkout existed. Not revenue. */
+export type UnverifiedPlan = { id: string; name: string; email: string; plan: string; billing: 'monthly' | 'quarterly'; selectedAt: string | null; monthly: number }
 
 export type DashboardData = {
   generatedAt: string
@@ -31,5 +34,5 @@ export type DashboardData = {
   sources: DashboardSource[]
   usage: { used: number; limit: number; planName: string | null; renewsAt: string | null }
   activity: Array<{ id: string; text: string; at: string }>
-  admin?: { accounts: number; paidAccounts: number; mrr: number; clips: number; sources: number; recent: AdminUser[] }
+  admin?: { accounts: number; paidAccounts: number; mrr: number; unverifiedPlans: UnverifiedPlan[]; clips: number; sources: number; recent: AdminUser[] }
 }

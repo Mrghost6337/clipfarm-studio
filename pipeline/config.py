@@ -13,13 +13,19 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+# Every path can be moved with an environment variable. The desktop app points
+# them all at %LOCALAPPDATA%\Clipfarm, never at the install folder.
 DATA_DIR = Path(os.environ.get("PIPELINE_DATA", ROOT / "pipeline" / "data"))
 CACHE_DIR = DATA_DIR / "cache"
 JOBS_DIR = DATA_DIR / "jobs"
 UPLOAD_DIR = DATA_DIR / "uploads"
-FONTS_DIR = ROOT / "assets" / "fonts"
-MODELS_DIR = ROOT / "models"
-ENV_FILE = ROOT / ".env"
+FONTS_DIR = Path(os.environ.get("PIPELINE_FONTS", ROOT / "assets" / "fonts"))
+MODELS_DIR = Path(os.environ.get("PIPELINE_MODELS", ROOT / "models"))
+ENV_FILE = Path(os.environ.get("PIPELINE_ENV_FILE", ROOT / ".env"))
+SECRETS_DIR = Path(os.environ.get("PIPELINE_SECRETS", ROOT / "secrets"))
+# Set by the desktop app: models come only from its model manager (no
+# downloads on first use) and yt-dlp is updated with the app, not in place.
+MANAGED = os.environ.get("PIPELINE_MANAGED", "") == "1"
 
 
 def load_env() -> None:
@@ -39,7 +45,7 @@ def load_env() -> None:
 
 load_env()
 
-for folder in (DATA_DIR, CACHE_DIR, JOBS_DIR, UPLOAD_DIR, FONTS_DIR, MODELS_DIR):
+for folder in (DATA_DIR, CACHE_DIR, JOBS_DIR, UPLOAD_DIR, MODELS_DIR):
     folder.mkdir(parents=True, exist_ok=True)
 
 
@@ -55,8 +61,9 @@ def _tool(name: str, fallback: Path) -> str:
     return name
 
 
-FFMPEG = _tool("ffmpeg", ROOT / ".tools" / "ffmpeg")
-FFPROBE = _tool("ffprobe", ROOT / ".tools" / "ffprobe")
+_EXE = ".exe" if sys.platform == "win32" else ""
+FFMPEG = _tool("ffmpeg", ROOT / ".tools" / f"ffmpeg{_EXE}")
+FFPROBE = _tool("ffprobe", ROOT / ".tools" / f"ffprobe{_EXE}")
 YTDLP = os.environ.get("YTDLP_PATH") or str(Path(sys.executable).parent / "yt-dlp")
 
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "small")
@@ -81,9 +88,30 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "llama-3.1-8b-instant")
 YTDLP_COOKIES = os.environ.get("YTDLP_COOKIES", "")
 YTDLP_COOKIES_FROM_BROWSER = os.environ.get("YTDLP_COOKIES_FROM_BROWSER", "")
 
-YOUTUBE_CLIENT_SECRETS = os.environ.get("YOUTUBE_CLIENT_SECRETS", str(ROOT / "secrets" / "youtube_client.json"))
-YOUTUBE_TOKEN_FILE = os.environ.get("YOUTUBE_TOKEN_FILE", str(ROOT / "secrets" / "youtube_token.json"))
+YOUTUBE_CLIENT_SECRETS = os.environ.get("YOUTUBE_CLIENT_SECRETS", str(SECRETS_DIR / "youtube_client.json"))
+YOUTUBE_TOKEN_FILE = os.environ.get("YOUTUBE_TOKEN_FILE", str(SECRETS_DIR / "youtube_token.json"))
 
 API_HOST = os.environ.get("PIPELINE_HOST", "127.0.0.1")
 API_PORT = int(os.environ.get("PIPELINE_PORT", "8787"))
+# When the first port is taken the service tries the next ones. The browser
+# Studio probes the same range (src/lib/pipeline.ts, PIPELINE_PORTS).
+API_PORT_RANGE = max(1, min(10, int(os.environ.get("PIPELINE_PORT_RANGE", "5"))))
 PUBLIC_BASE_URL = os.environ.get("PIPELINE_PUBLIC_URL", f"http://127.0.0.1:{API_PORT}")
+
+# Who may call the local API from a browser. The hosted site, the desktop app
+# and the Vite dev server; add more with PIPELINE_ALLOWED_ORIGINS (comma list).
+SITE_ORIGIN = os.environ.get("CLIPFARM_SITE_ORIGIN", "https://fractional-hr-34cett.freebuff.site").rstrip("/")
+ALLOWED_ORIGINS = frozenset(
+    origin.strip().rstrip("/")
+    for origin in [
+        SITE_ORIGIN,
+        "app://clipfarm",
+        "http://localhost:5357",
+        "http://127.0.0.1:5357",
+        *os.environ.get("PIPELINE_ALLOWED_ORIGINS", "").split(","),
+    ]
+    if origin.strip()
+)
+# The desktop app passes a fresh token per launch. Without it, `serve` makes
+# one and writes it to DATA_DIR/launch-token for the CLI and the dev proxy.
+LAUNCH_TOKEN = os.environ.get("PIPELINE_LAUNCH_TOKEN", "")
