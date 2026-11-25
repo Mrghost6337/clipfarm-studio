@@ -22,7 +22,7 @@ const BUILDS = [
 ]
 
 export function DownloadPage() {
-  usePageTitle('Download Clip Farm')
+  usePageTitle('Download Clipfarm')
 
   return (
     <section className="py-14 sm:py-20">
@@ -34,7 +34,7 @@ export function DownloadPage() {
 
         <div className="mt-8 max-w-2xl">
           <p className="text-[0.75rem] font-semibold tracking-[0.08em] text-muted uppercase">Desktop app</p>
-          <h1 className="mt-2 text-[2.3rem] leading-[1.03] font-semibold tracking-[-0.045em] text-balance sm:text-[3.2rem]">Download Clip Farm</h1>
+          <h1 className="mt-2 text-[2.3rem] leading-[1.03] font-semibold tracking-[-0.045em] text-balance sm:text-[3.2rem]">Download Clipfarm</h1>
           <p className="mt-3 text-[1rem] leading-relaxed text-body">
             The desktop app runs transcription, face tracking and rendering on your computer, so long videos never leave your machine.
           </p>

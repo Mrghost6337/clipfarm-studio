@@ -1,9 +1,8 @@
 import { ArrowLink } from './Button'
 import { Container } from './Container'
-import { SocialProof } from './Proof'
 import { Reveal } from './Reveal'
 
-export function CtaBand({ title, text, button, proof = 'Trusted by 400+ creators' }: { title: string; text: string; button: string; proof?: string }) {
+export function CtaBand({ title, text, button, proof = 'Runs on your computer. No API keys, no upload.' }: { title: string; text: string; button: string; proof?: string }) {
   return (
     <section className="py-20 sm:py-24">
       <Container>
@@ -16,7 +15,7 @@ export function CtaBand({ title, text, button, proof = 'Trusted by 400+ creators
               <ArrowLink to="/signup" size="lg">
                 {button}
               </ArrowLink>
-              <SocialProof label={proof} />
+              <p className="text-[0.875rem] font-medium text-ink-2">{proof}</p>
             </div>
           </div>
         </Reveal>

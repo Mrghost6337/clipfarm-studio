@@ -18,7 +18,6 @@ import { Overview } from './pages/app/Overview'
 import { SettingsPage } from './pages/app/SettingsPage'
 import { SourcesPage } from './pages/app/SourcesPage'
 import { StudioPage } from './pages/app/StudioPage'
-import { CaseStudies, CaseStudyPage } from './pages/CaseStudies'
 import { Gta6 } from './pages/Gta6'
 import { Home } from './pages/Home'
 import { Local } from './pages/Local'
@@ -75,8 +74,7 @@ function Pages() {
           <Route path="studio" element={<StudioEntry />} />
           <Route path="pipeline" element={<PlanPage />} />
           <Route path="90-day-plan" element={<PlanPage />} />
-          <Route path="case-studies" element={<CaseStudies />} />
-          <Route path="case-studies/:slug" element={<CaseStudyPage />} />
+          <Route path="case-studies/*" element={<Navigate to="/" replace />} />
           <Route path="about" element={<About />} />
           <Route path="toolkit" element={<Toolkit />} />
           <Route path="gta-6" element={<Gta6 />} />

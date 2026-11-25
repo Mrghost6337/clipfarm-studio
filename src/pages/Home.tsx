@@ -1,24 +1,22 @@
-import { ArrowRight, Plus } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { motion, useScroll, useSpring, useTransform } from 'motion/react'
 import { useRef } from 'react'
 import { Link } from 'react-router'
 
 import { ArrowLink, ButtonLink } from '../components/Button'
-import { QuoteBlock, ServiceCard } from '../components/Cards'
+import { ServiceCard } from '../components/Cards'
 import { Stat } from '../components/Card'
 import { CheckPoint } from '../components/CheckItem'
-import { CreatorCard, CreatorChip } from '../components/CreatorCard'
 import { Container } from '../components/Container'
 import { GtaClipRail } from '../components/GtaClipRail'
 import { CtaBand } from '../components/CtaBand'
 import { Accordion } from '../components/Accordion'
 import { Badge, CheckPill, Tag } from '../components/Pill'
 import { Marquee } from '../components/Marquee'
-import { SocialProof } from '../components/Proof'
 import { Reveal } from '../components/Reveal'
 import { Scribble } from '../components/Scribble'
 import { SectionHeading } from '../components/SectionHeading'
-import { CREATORS, CREATORS_NOTE, FAQS, GTA, HERO, HOME, IMAGES, PLAN_PAGE, SERVICES, TOOLS } from '../content'
+import { FAQS, GTA, HERO, HOME, IMAGES, PLAN_PAGE, SERVICES, TOOLS } from '../content'
 import { usePageTitle } from '../lib/title'
 
 const rise = (delay: number) => ({ initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as const } })
@@ -44,7 +42,7 @@ function Hero() {
       </div>
       <div className="relative mx-auto flex max-w-[1240px] flex-col items-center px-5 text-center sm:px-8">
         <motion.div {...rise(0)}>
-          <Badge avatar={IMAGES.avatarFounder}>{HERO.badge}</Badge>
+          <Badge>{HERO.badge}</Badge>
         </motion.div>
         <motion.h1 {...rise(0.08)} className="mt-6 text-[2.5rem] leading-[1.08] font-semibold tracking-[-0.022em] text-balance text-ink sm:text-[3.6rem] lg:text-[4.15rem] lg:leading-[1.13]">
           {HERO.title[0]}
@@ -62,7 +60,7 @@ function Hero() {
           </span>
         </motion.div>
         <motion.div {...rise(0.32)} className="mt-6">
-          <SocialProof label={HERO.proof} />
+          <p className="text-[0.95rem] font-medium text-ink-2">{HERO.proof}</p>
         </motion.div>
       </div>
       <Marquee className="relative mx-auto mt-[68px] max-w-[1324px] [--gap:14px]" label="What you get">
@@ -125,21 +123,6 @@ function Launch() {
   )
 }
 
-function Trusted() {
-  return (
-    <section aria-labelledby="trusted" className="py-16 sm:py-[72px]">
-      <h2 id="trusted" className="text-center text-[1.125rem] font-medium text-ink-2">
-        {HOME.trusted}
-      </h2>
-      <Marquee slow className="mx-auto mt-8 max-w-[1324px] [--gap:14px]" label="Channels Clipfarm clips for">
-        {CREATORS.map((creator) => (
-          <CreatorChip key={creator.name} creator={creator} />
-        ))}
-      </Marquee>
-    </section>
-  )
-}
-
 function Services() {
   return (
     <section className="py-20 sm:py-24">
@@ -175,8 +158,8 @@ function Plan() {
         <Reveal className="relative">
           <img src={IMAGES.workshop.src} alt={IMAGES.workshop.alt} loading="lazy" width={1400} height={933} className="aspect-[4/3.4] w-full rounded-[var(--radius-xl)] object-cover shadow-[var(--shadow-card)]" />
           <div className="absolute right-4 bottom-4 left-4 flex items-center gap-3 rounded-[var(--radius-md)] bg-paper/95 p-4 shadow-[var(--shadow-card)] backdrop-blur sm:right-auto sm:max-w-xs">
-            <span className="text-[2rem] leading-none font-semibold tracking-[-0.05em]">20</span>
-            <span className="text-[0.9rem] leading-snug text-body">vertical clips out of every VOD, captioned and tracked</span>
+            <span className="text-[2rem] leading-none font-semibold tracking-[-0.05em]">9:16</span>
+            <span className="text-[0.9rem] leading-snug text-body">clips with burned-in captions, rendered on your computer</span>
           </div>
         </Reveal>
         <div className="flex flex-col gap-10">
@@ -211,7 +194,7 @@ function Stats() {
     <section className="py-8">
       <Container>
         <Reveal>
-          <div className="grid gap-8 rounded-[var(--radius-xl)] bg-ink px-8 py-12 sm:grid-cols-2 sm:px-12 lg:grid-cols-4">
+          <div className="grid gap-8 rounded-[var(--radius-xl)] bg-ink px-8 py-12 sm:grid-cols-3 sm:px-12">
             {HOME.stats.map((s) => (
               <Stat key={s.label} value={s.value} label={s.label} tone="white" />
             ))}
@@ -251,55 +234,6 @@ function Stack() {
   )
 }
 
-function Cases() {
-  return (
-    <section className="py-20 sm:py-24">
-      <Container>
-        <Reveal>
-          <SectionHeading
-            eyebrow={HOME.cases.eyebrow}
-            title={HOME.cases.title}
-            text={HOME.cases.text}
-            action={
-              <ButtonLink to="/case-studies" variant="secondary">
-                {HOME.cases.link} <ArrowRight aria-hidden className="size-4" />
-              </ButtonLink>
-            }
-          />
-        </Reveal>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {CREATORS.slice(0, 8).map((creator, i) => (
-            <Reveal key={creator.name} delay={(i % 3) * 0.06}>
-              <CreatorCard creator={creator} className="h-full" />
-            </Reveal>
-          ))}
-          <Reveal delay={0.12}>
-            <Link
-              to="/signup"
-              className="group flex h-full min-h-[232px] flex-col items-start justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-line-strong bg-white/40 p-6 transition-[transform,border-color,background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-ink hover:bg-white/80 hover:shadow-[var(--shadow-card)]"
-            >
-              <span aria-hidden className="grid size-11 place-items-center rounded-full bg-peach text-accent-ink">
-                <Plus className="size-5" />
-              </span>
-              <p className="text-[1.05rem] font-semibold tracking-[-0.02em]">Your channel next</p>
-              <p className="text-[0.88rem] leading-relaxed text-body">Send one VOD and get ten clips back in 48 hours. The first pass is free.</p>
-              <span className="mt-1 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-accent-ink">
-                Start free <ArrowRight aria-hidden className="size-3.5" />
-              </span>
-            </Link>
-          </Reveal>
-        </div>
-        <p className="mt-6 max-w-3xl text-[0.78rem] leading-relaxed text-muted">{CREATORS_NOTE}</p>
-        <Reveal>
-          <div className="mt-16 rounded-[var(--radius-xl)] bg-peach/70 p-8 sm:p-14">
-            <QuoteBlock {...HOME.quote} avatar={IMAGES.avatars[0]} className="max-w-4xl" />
-          </div>
-        </Reveal>
-      </Container>
-    </section>
-  )
-}
-
 function Faq() {
   return (
     <section id="faq" className="scroll-mt-28 py-20 sm:py-24">
@@ -321,12 +255,10 @@ export function Home() {
       <Hero />
       <Launch />
       <GtaClipRail />
-      <Trusted />
       <Services />
       <Plan />
       <Stats />
       <Stack />
-      <Cases />
       <Faq />
       <CtaBand title={HOME.cta.title} text={HOME.cta.text} button={HOME.cta.button} />
     </>

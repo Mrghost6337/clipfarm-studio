@@ -5,22 +5,20 @@ import { useState, type ReactNode } from 'react'
 import { Accordion } from '../components/Accordion'
 import { ArrowButton, ArrowLink, Button, IconButton, type Force, type Variant } from '../components/Button'
 import { Card, Stat } from '../components/Card'
-import { CaseCard, QuoteBlock, ServiceCard } from '../components/Cards'
+import { ServiceCard } from '../components/Cards'
 import { Checkbox } from '../components/Checkbox'
 import { CheckList, CheckPoint } from '../components/CheckItem'
-import { ClientLogo } from '../components/ClientLogos'
 import { Container } from '../components/Container'
 import { Notice, SelectField, TextArea, TextField } from '../components/Field'
 import { Logo } from '../components/Logo'
 import { Marquee } from '../components/Marquee'
 import { Drawer, Modal } from '../components/Overlay'
 import { Badge, CheckPill, Chip, Eyebrow, Tag } from '../components/Pill'
-import { SocialProof, Stars } from '../components/Proof'
 import { Scribble } from '../components/Scribble'
 import { Segmented } from '../components/Segmented'
 import { Stepper } from '../components/Stepper'
 import { ToastPreview, useToast } from '../components/Toast'
-import { CASES, CLIENTS, FAQS, HERO, IMAGES, SERVICES } from '../content'
+import { FAQS, HERO, SERVICES } from '../content'
 import { usePageTitle } from '../lib/title'
 
 const COLORS = [
@@ -268,7 +266,7 @@ export function Styleguide() {
           <Button size="lg">Large</Button>
           <ArrowLink to="/signup">Start free</ArrowLink>
           <ArrowLink to="/signup" size="lg">
-            Get 10 free clips
+            Start free
           </ArrowLink>
         </div>
       </Section>
@@ -276,7 +274,7 @@ export function Styleguide() {
       <Section id="pills" title="Pills, chips and tags">
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge avatar={IMAGES.avatarFounder}>{HERO.badge}</Badge>
+            <Badge>{HERO.badge}</Badge>
             <Badge tone="white">White badge</Badge>
             <Badge tone="peach">Peach badge</Badge>
             <Eyebrow>Eyebrow</Eyebrow>
@@ -397,7 +395,7 @@ export function Styleguide() {
               ))}
             </div>
             <div className="flex w-full flex-col items-center gap-3 rounded-[var(--radius-xl)] border border-dashed border-line-strong px-6 py-8 text-center">
-              <p className="font-semibold">No case studies match that search.</p>
+              <p className="font-semibold">No clips match that search.</p>
               <Button variant="secondary" size="sm">
                 Clear filters
               </Button>
@@ -409,40 +407,28 @@ export function Styleguide() {
       <Section id="cards" title="Cards">
         <div className="grid gap-5 md:grid-cols-3">
           <ServiceCard service={SERVICES[0]} />
-          <CaseCard study={CASES[0]} />
+          <ServiceCard service={SERVICES[SERVICES.length - 1]} />
           <div className="flex flex-col gap-5">
             <Card>
-              <Stat value="24 h" label="from VOD to clips" />
+              <Stat value="1080×1920" label="vertical exports" />
             </Card>
             <Card tone="ink">
-              <Stat value="214M" label="views earned by clips" tone="white" />
+              <Stat value="3" label="caption files per clip" tone="white" />
             </Card>
             <Card tone="sand">
               <CheckList items={['Sand card', 'With a check list']} size="sm" />
             </Card>
           </div>
         </div>
-        <Card tone="peach" className="mt-5">
-          <QuoteBlock text="I have not opened an editor in three months." name="Nova Reyes" role="Streamer, NovaPlays" avatar={IMAGES.avatars[2]} />
-        </Card>
       </Section>
 
-      <Section id="brand" title="Brand and proof">
+      <Section id="brand" title="Brand">
         <div className="flex flex-col gap-8">
           <div className="flex flex-wrap items-center gap-8">
             <Logo />
             <span className="rounded-[var(--radius-md)] bg-ink p-4">
               <Logo tone="white" />
             </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
-            {CLIENTS.map((c) => (
-              <ClientLogo key={c} name={c} />
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-8">
-            <SocialProof label="Trusted by 400+ creators" />
-            <Stars rating={4} />
           </div>
           <div className="grid gap-6 md:grid-cols-3">
             {HERO.points.map((p) => (

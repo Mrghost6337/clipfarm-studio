@@ -22,17 +22,9 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
       aria-label={`Watch ${clip.title} by ${clip.creator} on YouTube`}
       className="group relative aspect-[9/16] w-[72vw] max-w-[286px] min-w-[228px] shrink-0 snap-start overflow-hidden rounded-[var(--radius-lg)] border border-white/15 bg-white/5 text-left shadow-[0_24px_60px_-30px_rgb(0_0_0/0.9)] transition-[transform,border-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out-soft)] hover:-translate-y-1.5 hover:border-white/35 hover:shadow-[0_32px_70px_-28px_rgb(0_0_0/0.95)] focus-visible:outline-[2.5px] focus-visible:outline-offset-4 focus-visible:outline-apricot"
     >
-      <img
-        src={clip.thumbnail}
-        alt=""
-        width={1280}
-        height={720}
-        loading="lazy"
-        className={cx(
-          'absolute inset-0 size-full object-cover opacity-85 transition-[transform,opacity] duration-700 ease-[var(--ease-out-soft)] group-hover:scale-[1.05] group-hover:opacity-100',
-          clip.focus === 'left' ? 'object-left' : 'object-center',
-        )}
-      />
+      {/* No stored thumbnail: there is no permission record for it. The card links to the original upload. */}
+      <span aria-hidden className={cx('absolute inset-0 bg-gradient-to-br', TONES[index % TONES.length])} />
+      <span aria-hidden className="absolute inset-x-4 top-16 text-[1.6rem] leading-[1.05] font-black tracking-[-0.04em] text-white/90 uppercase">{clip.tag}</span>
       <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-ink/45 via-transparent to-transparent" />
       <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-transparent" />
 
@@ -54,7 +46,9 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
 
       <span className="absolute inset-x-0 bottom-0 flex flex-col p-4">
         <span className="flex items-center gap-2">
-          <img src={clip.avatar} alt="" width={28} height={28} loading="lazy" className="round size-7 rounded-full object-cover ring-1 ring-white/50" />
+          <span aria-hidden className="round grid size-7 shrink-0 place-items-center rounded-full bg-white/15 text-[0.62rem] font-bold text-white ring-1 ring-white/40">
+            {clip.creator.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+          </span>
           <span className="min-w-0">
             <span className="block truncate text-[0.8rem] font-semibold text-white">{clip.creator}</span>
             <span className="block truncate text-[0.62rem] font-medium text-white/55">{clip.channel}</span>
@@ -71,6 +65,8 @@ function ClipCard({ clip, index }: { clip: Clip; index: number }) {
     </motion.a>
   )
 }
+
+const TONES = ['from-[#3b1d4a] to-[#c2410c]', 'from-[#14323a] to-[#0e7490]', 'from-[#3a2a12] to-[#b45309]', 'from-[#2a1530] to-[#be185d]', 'from-[#1c2a14] to-[#4d7c0f]', 'from-[#2b1a14] to-[#9a3412]']
 
 export function GtaClipRail() {
   const rail = useRef<HTMLDivElement>(null)

@@ -12,7 +12,13 @@ function LegalLayout({ title, updated, children }: { title: string; updated: str
       <Container className="max-w-3xl">
         <Eyebrow>Legal</Eyebrow>
         <h1 className="mt-4 text-[2.3rem] leading-tight font-semibold tracking-[-0.04em] sm:text-[3rem]">{title}</h1>
-        <p className="mt-2 text-[0.82rem] text-muted">Last updated {updated}. Questions: <a href={`mailto:${SITE.email}`} className="underline decoration-2 underline-offset-4">{SITE.email}</a>.</p>
+        <p className="mt-2 text-[0.82rem] text-muted">Last updated {updated}. {SITE.email ? (
+            <>
+              Questions: <a href={`mailto:${SITE.email}`} className="underline decoration-2 underline-offset-4">{SITE.email}</a>.
+            </>
+          ) : (
+            'A contact address will be added here.'
+          )}</p>
         <div className="mt-8 flex flex-col gap-7 text-[0.95rem] leading-relaxed text-body [&_h2]:text-[1.25rem] [&_h2]:font-semibold [&_h2]:tracking-[-0.02em] [&_h2]:text-ink [&_h3]:font-semibold [&_h3]:text-ink [&_li]:ml-5 [&_li]:list-disc [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5">
           {children}
         </div>
@@ -55,7 +61,13 @@ export function Privacy() {
       </p>
       <h2>Your rights</h2>
       <p>
-        You can request access, correction, export or deletion of your personal data by emailing <a href={`mailto:${SITE.email}`} className="font-semibold text-ink underline decoration-2 underline-offset-4">{SITE.email}</a>. We answer within 30 days.
+        You can request access, correction, export or deletion of your personal data {SITE.email ? (
+          <>
+            by emailing <a href={`mailto:${SITE.email}`} className="font-semibold text-ink underline decoration-2 underline-offset-4">{SITE.email}</a>. We answer within 30 days.
+          </>
+        ) : (
+          'through the contact address that will be published on this page. You can delete your sources and clips in the dashboard at any time.'
+        )}
       </p>
       <h2>Contact</h2>
       <p>Questions about this policy go to the same address. For content takedowns, see the <Link to="/terms#rights" className="font-semibold text-ink underline decoration-2 underline-offset-4">content rights</Link> section.</p>
@@ -111,7 +123,11 @@ export function Terms() {
         We may update these terms and will post the new date on this page. Material changes are announced in the app. You can stop using the service at any time; we may terminate accounts that breach these terms.
       </p>
       <h2>9. Contact</h2>
-      <p>Questions about these terms: <a href={`mailto:${SITE.email}`} className="font-semibold text-ink underline decoration-2 underline-offset-4">{SITE.email}</a>.</p>
+      {SITE.email && (
+        <p>
+          Questions about these terms: <a href={`mailto:${SITE.email}`} className="font-semibold text-ink underline decoration-2 underline-offset-4">{SITE.email}</a>.
+        </p>
+      )}
     </LegalLayout>
   )
 }

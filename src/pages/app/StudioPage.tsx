@@ -18,7 +18,24 @@ import { usePageTitle } from '../../lib/title'
 import { useDashboard } from '../../lib/useDashboard'
 import { formatStamp, type Clip } from '../../shared/clips'
 import { EXPORT_FORMATS } from '../../shared/exports'
-import { TOOLS, type ToolGroup } from '../../content'
+import { TOOLS } from '../../content'
+
+type ToolGroup = 'Source' | 'Cut' | 'Track' | 'Words' | 'Sound' | 'Ship'
+
+/** Which stage each tool in TOOLS belongs to on this bench. */
+const STAGE_OF: Record<string, ToolGroup> = {
+  'yt-dlp': 'Source',
+  Mediabunny: 'Cut',
+  Editly: 'Cut',
+  'OpenCV (YuNet)': 'Track',
+  'faster-whisper': 'Words',
+  'whisper.cpp': 'Words',
+  'Transformers.js': 'Words',
+  libass: 'Words',
+  FFmpeg: 'Sound',
+  Shotcut: 'Ship',
+  Kdenlive: 'Ship',
+}
 
 type Stage = {
   group: ToolGroup
@@ -134,7 +151,7 @@ export function StudioPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {stages.map((stage) => {
-          const tools = TOOLS.filter((tool) => tool.group === stage.group)
+          const tools = TOOLS.filter((tool) => STAGE_OF[tool.name] === stage.group)
           return (
             <Card key={stage.group} className="flex flex-col gap-4">
               <div className="flex items-start justify-between gap-2">

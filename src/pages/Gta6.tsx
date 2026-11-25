@@ -231,14 +231,6 @@ function Creators() {
                 <div className="flex items-start justify-between gap-2">
                   <span aria-hidden className="relative grid size-14 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-[#ff2d8a] to-[#ffb03a] p-[2px] text-[0.85rem] font-bold text-white">
                     <span className="grid size-full place-items-center rounded-full bg-ink/40">{initials(creator.name)}</span>
-                    <img
-                      src={creator.avatar}
-                      alt=""
-                      width={56}
-                      height={56}
-                      loading="lazy"
-                      className="absolute inset-0 size-full rounded-full object-cover ring-2 ring-paper transition-transform duration-[var(--duration-base)] ease-[var(--ease-spring)] group-hover:scale-105"
-                    />
                   </span>
                   <ArrowUpRight aria-hidden className="size-4 text-muted transition-[transform,color] duration-[var(--duration-base)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-ink" />
                 </div>
@@ -256,14 +248,6 @@ function Creators() {
           ))}
         </div>
         <p className="mt-6 max-w-2xl text-[0.8rem] leading-relaxed text-muted">{GTA.creatorsNote}</p>
-        <details className="mt-3 max-w-2xl rounded-[var(--radius-md)] bg-sand px-4 py-2 text-[0.78rem] text-muted">
-          <summary className="cursor-pointer font-semibold text-ink-2">Photo credits</summary>
-          <ul className="mt-2 flex flex-col gap-1">
-            {GTA.creatorCredits.map((credit) => (
-              <li key={credit}>{credit}</li>
-            ))}
-          </ul>
-        </details>
       </Container>
     </section>
   )

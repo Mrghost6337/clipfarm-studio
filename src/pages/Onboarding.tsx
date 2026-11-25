@@ -94,7 +94,7 @@ export function Onboarding() {
             {editing ? 'Tune your channel' : `Let’s set up ${user.name.split(' ')[0]}’s channel`}
           </h1>
           <p className="max-w-lg text-[1.0625rem] leading-relaxed text-body">
-            This is what every editor works from: your channel, your caption style and the moments you care about. You can change it any time.
+            Tell us about your channel. You can change it any time.
           </p>
           <ul className="flex flex-col gap-3 text-[0.95rem] text-ink-2">
             <li className="flex items-center gap-3">

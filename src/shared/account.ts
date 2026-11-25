@@ -26,7 +26,7 @@ export const PLANS: readonly Plan[] = [
     limit: 20,
     days: '20 clips a month',
     text: 'For solo streamers posting a few VODs a week who want a feed that never goes quiet.',
-    features: ['One VOD a week', 'Highlight finding + captions', '9:16 exports', '48-hour turnaround'],
+    features: ['20 clips a month', 'Highlight finding, captions and face tracking', '1080×1920 exports with SRT, VTT and ASS files'],
   },
   {
     id: 'creator',
@@ -35,7 +35,7 @@ export const PLANS: readonly Plan[] = [
     limit: 60,
     days: '60 clips a month',
     text: 'For growing channels posting daily across TikTok, Shorts and Reels.',
-    features: ['Everything in Starter', 'Three VODs a week', 'Face tracking + punch-ins', 'Audio cleanup', '24-hour turnaround'],
+    features: ['60 clips a month', 'Everything in Starter'],
     featured: true,
   },
   {
@@ -45,7 +45,7 @@ export const PLANS: readonly Plan[] = [
     limit: 200,
     days: '200 clips a month',
     text: 'For multi-channel networks and agencies clipping a whole roster.',
-    features: ['Everything in Creator', 'Unlimited VODs across channels', 'Revenue-share option', 'Dedicated editor on Slack', 'Weekly performance report'],
+    features: ['200 clips a month', 'Everything in Starter'],
   },
 ]
 

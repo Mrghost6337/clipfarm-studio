@@ -92,7 +92,7 @@ export function ResourcesHub() {
           <div className="grid gap-5 lg:grid-cols-3">
             {[
               { icon: BookOpen, title: 'Guides', text: 'Step-by-step workflows for the first clip, captions and publishing.', to: '/resources/guides', label: '3 guides' },
-              { icon: HelpCircle, title: 'FAQ', text: 'Limits, supported platforms, rights and what happens to your files.', to: '/resources/faq', label: '12 answers' },
+              { icon: HelpCircle, title: 'FAQ', text: 'Limits, supported platforms, rights and what happens to your files.', to: '/resources/faq', label: '11 answers' },
               { icon: History, title: 'Changelog', text: 'What shipped, when, and what changed for your workflow.', to: '/resources/changelog', label: 'Newest first' },
             ].map((item) => (
               <Link key={item.title} to={item.to} className="group">
@@ -180,7 +180,7 @@ export function FaqPage() {
     {
       title: 'Getting started',
       items: [
-        { q: 'Do I need an account to use the local pipeline?', a: 'No. The pipeline runs on your machine and the Studio talks to it directly. An account is only needed for the hosted plans, billing and team features.' },
+        { q: 'Do I need an account to use the local pipeline?', a: 'No. The pipeline runs on your machine and the Studio talks to it directly. An account is needed for the Studio, the dashboard and your clip library.' },
         { q: 'Which browsers work?', a: 'Chrome, Edge and recent versions of Safari and Firefox. Clip preview uses normal MP4 playback, so no WebCodecs requirement for the Studio.' },
         { q: 'Do I need a GPU?', a: 'No. Whisper runs on CPU with int8, and ffmpeg uses libx264 when there is no NVENC. A GPU makes transcription faster but is optional.' },
       ],
@@ -190,7 +190,7 @@ export function FaqPage() {
       items: [
         { q: 'Which links are supported?', a: 'YouTube channels, videos and Shorts; Twitch channels, VODs and clips; TikTok profiles and videos. Other links return a clear unsupported message.' },
         { q: 'Why does YouTube ask for a sign-in check?', a: 'YouTube rate-limits datacenter IPs. Add a cookies.txt export or set YTDLP_COOKIES_FROM_BROWSER in .env; the error message names the setting.' },
-        { q: 'How long can a source video be?', a: 'Free is 15 minutes, Creator 90 minutes, Network 4 hours. The local pipeline itself has no hard limit, but transcription time grows with length.' },
+        { q: 'How long can a source video be?', a: 'The local pipeline has no hard limit. Transcription time grows with length, and videos longer than 30 minutes download audio first.' },
         { q: 'What happens to downloads?', a: 'They are cached under pipeline/data/cache by video ID. Clear media cache removes them; rendered clips and captions stay.' },
       ],
     },
