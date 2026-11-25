@@ -37,8 +37,15 @@ const check = (name, ok, detail = '') => {
   const page = await app.firstWindow()
   await page.setViewportSize({ width: 1280, height: 800 })
 
-  await page.getByText('Done', { exact: true }).waitFor({ timeout: 180000 })
-  check('preparation finished with real steps', (await page.locator('li').count()) === 7)
+  await page.getByRole('img', { name: 'Clipfarm Studio is starting' }).waitFor({ timeout: 30000 })
+  await page.getByRole('button', { name: 'Start free' }).waitFor({ timeout: 30000 })
+  await page.waitForTimeout(1200)
+  await page.screenshot({ path: `${OUT}/p1-welcome.png` })
+  check('welcome wall shows covers', (await page.locator('img[src^="/wall/"]').count()) > 0)
+  await page.getByRole('button', { name: 'Start free' }).click()
+  await page.getByRole('button', { name: 'Continue with Local' }).click()
+  await page.getByRole('heading', { name: 'Done' }).waitFor({ timeout: 300000 })
+  check('preparation finished with real steps', (await page.locator('main li').count()) === 7)
   await page.screenshot({ path: `${OUT}/p1-prepare-done.png` })
 
   const bounds = await app.evaluate(({ BrowserWindow }) => {

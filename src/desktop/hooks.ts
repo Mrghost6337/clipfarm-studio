@@ -45,3 +45,12 @@ export function useAuthStatus() {
   }, [])
   return status
 }
+
+/** Formatting helpers for sizes, speeds and durations. */
+export const formatBytes = (bytes: number) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(2)} GB` : bytes >= 1e6 ? `${(bytes / 1e6).toFixed(bytes >= 1e8 ? 0 : 1)} MB` : `${Math.max(0, Math.round(bytes / 1e3))} KB`)
+export const formatDuration = (seconds: number | null) => {
+  if (seconds === null || !Number.isFinite(seconds)) return '—'
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))} s`
+  const minutes = Math.floor(seconds / 60)
+  return minutes < 60 ? `${minutes} min ${Math.round(seconds % 60)} s` : `${Math.floor(minutes / 60)} h ${minutes % 60} min`
+}

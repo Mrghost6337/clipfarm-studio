@@ -397,6 +397,36 @@ def render_job_clip(job_id: str, clip_id: str, request: ClipRenderRequest) -> di
     return updated
 
 
+class ModelTestRequest(BaseModel):
+    model: str = Field(pattern=r"^[a-z0-9.-]{1,40}$")
+
+
+@app.get("/bench")
+def run_benchmark() -> StreamingResponse:
+    """Server-sent progress of the real PC benchmark (encode + CPU)."""
+    from . import bench
+
+    def stream():
+        try:
+            for event in bench.benchmark():
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as error:  # noqa: BLE001
+            yield f"event: error\ndata: {json.dumps({'detail': str(error)})}\n\n"
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"cache-control": "no-cache", "x-accel-buffering": "no"})
+
+
+@app.post("/models/test")
+def test_model(request: ModelTestRequest) -> dict[str, Any]:
+    """Transcribes 15 s of the bundled sample and finds a face: proves a model works on this PC."""
+    from . import bench
+
+    try:
+        return bench.model_test(request.model)
+    except Exception as error:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.get("/posting/status")
 def posting_status() -> dict[str, Any]:
     return publish.status()

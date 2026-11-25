@@ -1,0 +1,231 @@
+{
+ "version": 1,
+ "note": "Welcome-wall covers. Add a streamer's cover only with written permission: permission = {type: 'written', grantedBy, date, reference}. Open-licence covers need source.license and source.licenseUrl.",
+ "covers": [
+  {
+   "id": "tears-of-steel-01",
+   "image": "/wall/tears-of-steel-01.jpg",
+   "title": "I'm having nightmares that I'm being",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "tears-of-steel-02",
+   "image": "/wall/tears-of-steel-02.jpg",
+   "title": "I'm having nightmares that I'm being",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "tears-of-steel-03",
+   "image": "/wall/tears-of-steel-03.jpg",
+   "title": "Well, that's perfect",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "tears-of-steel-04",
+   "image": "/wall/tears-of-steel-04.jpg",
+   "title": "Why don't you just admit that",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "tears-of-steel-05",
+   "image": "/wall/tears-of-steel-05.jpg",
+   "title": "There's no reason to destroy the",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "tears-of-steel-06",
+   "image": "/wall/tears-of-steel-06.jpg",
+   "title": "You broke my heart",
+   "source": {
+    "title": "Tears of Steel",
+    "author": "Blender Foundation",
+    "url": "https://commons.wikimedia.org/wiki/File:Tears_of_Steel_1080p.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sintel-01",
+   "image": "/wall/sintel-01.jpg",
+   "title": "Brings you to the land of",
+   "source": {
+    "title": "Sintel",
+    "author": "Blender Foundation (Durian Open Movie project)",
+    "url": "https://commons.wikimedia.org/wiki/File:Sintel_movie_4K.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sintel-02",
+   "image": "/wall/sintel-02.jpg",
+   "title": "As long as I can remember",
+   "source": {
+    "title": "Sintel",
+    "author": "Blender Foundation (Durian Open Movie project)",
+    "url": "https://commons.wikimedia.org/wiki/File:Sintel_movie_4K.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sintel-03",
+   "image": "/wall/sintel-03.jpg",
+   "title": "Hey, sit still",
+   "source": {
+    "title": "Sintel",
+    "author": "Blender Foundation (Durian Open Movie project)",
+    "url": "https://commons.wikimedia.org/wiki/File:Sintel_movie_4K.webm",
+    "license": "CC BY 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/3.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-01",
+   "image": "/wall/sprite-fright-01.jpg",
+   "title": "Can't believe we got stuck with",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-02",
+   "image": "/wall/sprite-fright-02.jpg",
+   "title": "It's thinking we should call our",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-03",
+   "image": "/wall/sprite-fright-03.jpg",
+   "title": "Bit of friendly campsite ribbing",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-04",
+   "image": "/wall/sprite-fright-04.jpg",
+   "title": "I interest you in some pepperminty",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-05",
+   "image": "/wall/sprite-fright-05.jpg",
+   "title": "Maybe it was just ketchup or",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  },
+  {
+   "id": "sprite-fright-06",
+   "image": "/wall/sprite-fright-06.jpg",
+   "title": "Where every not be home pull",
+   "source": {
+    "title": "Sprite Fright",
+    "author": "Blender Studio",
+    "url": "https://commons.wikimedia.org/wiki/File:Sprite_Fright_-_Blender_Open_Movie-full_movie.webm",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/"
+   },
+   "permission": {
+    "type": "open-licence"
+   }
+  }
+ ]
+}

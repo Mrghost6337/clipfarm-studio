@@ -32,6 +32,9 @@ for (const subset of ['latin', 'latin-ext']) {
 copy(nm('@fontsource-variable', 'inter-tight', 'LICENSE'), path.join(fonts, 'LICENSE-inter-tight.txt'))
 copy(nm('@fontsource', 'caveat', 'LICENSE'), path.join(fonts, 'LICENSE-caveat.txt'))
 
+// Interface sounds (original, CC0: desktop/assets/sounds/LICENSE.txt)
+for (const name of readdirSync(path.join(desktop, 'assets', 'sounds'))) copy(path.join(desktop, 'assets', 'sounds', name), path.join(desktop, 'dist', 'renderer', 'sounds', name))
+
 // MediaPipe
 const mp = path.join(out, 'mediapipe')
 copy(nm('@mediapipe', 'tasks-vision', 'vision_bundle.mjs'), path.join(mp, 'vision_bundle.mjs'))

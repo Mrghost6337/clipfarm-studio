@@ -116,6 +116,15 @@ export class Auth extends EventEmitter {
     else this.set({ state: 'error', message })
   }
 
+  /** The current account straight from the site (null when signed out or offline). */
+  async fetchMe(): Promise<Record<string, unknown> | null> {
+    const token = this.token()
+    if (!token) return null
+    const response = await net.fetch(`${this.siteOrigin()}/api/auth/me`, { headers: { authorization: `Bearer ${token}` }, bypassCustomProtocolHandlers: true } as RequestInit)
+    const data = (await response.json()) as { user?: Record<string, unknown> | null }
+    return data.user ?? null
+  }
+
   /** The site said the token is not valid any more: forget it, ask to sign in again. */
   expire() {
     if (this.status.state === 'expired') return

@@ -46,6 +46,39 @@ export type AuthStatus =
   | { state: 'expired' }
   | { state: 'error'; message: string }
 
+export type ModelProgress = {
+  id: string
+  state: 'idle' | 'downloading' | 'paused' | 'verifying' | 'installed' | 'error'
+  received: number
+  total: number
+  /** Bytes per second over the last few seconds. */
+  speed: number
+  /** Seconds left, null when unknown. */
+  eta: number | null
+  error: string | null
+}
+
+export type ModelInfo = { id: string; name: string; label: string; bytes: number; license: string; source: string; installed: boolean; progress: ModelProgress | null }
+
+export type ModelTest = { ok: boolean; model: string; device: string; language: string; languageProbability: number; text: string; seconds: number; loadSeconds: number; transcribeSeconds: number; realtimeFactor: number; faces: number }
+
+export type PcItemId = 'windows' | 'cpu' | 'memory' | 'gpu' | 'disk' | 'ffmpeg' | 'benchmark'
+export type PcItem = { id: PcItemId; label: string; state: 'pending' | 'running' | 'done' | 'failed'; progress: number; detail: string | null }
+export type PcFacts = {
+  os: string
+  cpu: string
+  cores: number
+  memoryGb: number
+  gpu: string | null
+  vramGb: number | null
+  freeDiskGb: number
+  ffmpeg: boolean
+  encodeFps: number | null
+  gflops: number | null
+}
+export type Recommendation = { model: 'whisper-tiny' | 'whisper-base' | 'whisper-small'; reason: string }
+export type PcCheckResult = { ok: boolean; items: PcItem[]; facts: PcFacts; recommendation: Recommendation }
+
 export type AppInfo = { version: string; platform: string; packaged: boolean; siteOrigin: string; dataDir: string }
 
 export type Api = {
@@ -62,6 +95,17 @@ export type Api = {
   'auth:start': { arg: void; result: AuthStatus }
   'auth:cancel': { arg: void; result: AuthStatus }
   'auth:sign-out': { arg: void; result: AuthStatus }
+  /** Records accepted legal versions locally once the account confirms them. */
+  'terms:record': { arg: { terms: string; privacy: string }; result: AppState }
+  'pccheck:run': { arg: void; result: PcCheckResult }
+  /** Without running the check: the lightest safe setup. */
+  'pccheck:skip': { arg: void; result: Recommendation }
+  'models:list': { arg: void; result: ModelInfo[] }
+  'models:download': { arg: string; result: ModelProgress }
+  'models:pause': { arg: string; result: boolean }
+  'models:remove': { arg: string; result: ModelInfo[] }
+  /** Transcribes the bundled sample with the model and finds a face, then makes it the active model. */
+  'models:test': { arg: string; result: ModelTest }
 }
 
 export type Channel = keyof Api
@@ -70,6 +114,8 @@ export type Events = {
   'pipeline:status': PipelineStatus
   'prepare:line': PrepareLine
   'auth:status': AuthStatus
+  'pccheck:item': PcItem
+  'models:progress': ModelProgress
 }
 
 // ---------------------------------------------------------------------------
@@ -128,6 +174,21 @@ export function validateStatePatch(value: unknown): Partial<AppState> {
     }
   }
   return out
+}
+
+export function validateLegalVersions(value: unknown): { terms: string; privacy: string } {
+  if (!isObject(value)) return fail('bad legal versions')
+  const { terms, privacy } = value as Record<string, unknown>
+  const version = /^\d{4}-\d{2}-\d{2}$/
+  if (typeof terms !== 'string' || typeof privacy !== 'string' || !version.test(terms) || !version.test(privacy)) fail('bad legal versions')
+  return { terms: terms as string, privacy: privacy as string }
+}
+
+export const MODEL_IDS = ['whisper-tiny', 'whisper-base', 'whisper-small'] as const
+
+export function validateModelId(value: unknown): string {
+  if (!MODEL_IDS.includes(value as (typeof MODEL_IDS)[number])) fail('unknown model')
+  return value as string
 }
 
 /** Only http(s) links leave the app, and never to file: or custom schemes. */

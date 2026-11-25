@@ -5,6 +5,7 @@ import { Button } from '../../components/Button'
 import { Notice } from '../../components/Field'
 import { requestJson } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
+import { useAuthStatus } from '../hooks'
 import { Avatar } from './Avatar'
 
 /**
@@ -13,7 +14,10 @@ import { Avatar } from './Avatar'
  * dashboard: clips, sources and plan). Continues as soon as it has loaded.
  */
 export function Profile({ onDone }: { onDone: () => void }) {
-  const { user, refresh } = useAuth()
+  const { user: account, refresh } = useAuth()
+  const status = useAuthStatus()
+  // The main process already knows who is signed in: show the name and picture at once.
+  const user = account ?? (status?.state === 'signed-in' ? { name: status.user.name, email: status.user.email, avatarUrl: status.user.avatarUrl } : null)
   const [error, setError] = useState('')
   const [offline, setOffline] = useState(false)
 

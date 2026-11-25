@@ -2,9 +2,11 @@ import { app, BrowserWindow, ipcMain, Menu, session, shell, type IpcMainInvokeEv
 import { appendFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { IpcValidationError, validateExternalUrl, validateOpenPath, validateStatePatch, type Api, type AppInfo, type Channel, type Events } from '../shared/ipc'
+import { IpcValidationError, validateExternalUrl, validateLegalVersions, validateModelId, validateOpenPath, validateStatePatch, type Api, type AppInfo, type Channel, type Events, type ModelTest } from '../shared/ipc'
 import { Auth } from './auth'
 import { log, setAppLog } from './log'
+import { ModelManager } from './models'
+import { recommend, runPcCheck } from './pccheck'
 import { appRoot, configurePaths, getDirs, rendererRoot } from './paths'
 import { runPrepare } from './prepare'
 import { APP_ORIGIN, handleProtocol, registerScheme } from './protocol'
@@ -32,7 +34,13 @@ if (!SMOKE_TEST && !app.requestSingleInstanceLock()) {
 }
 
 const store = new StateStore(dirs.state)
-const sidecar = new Sidecar({ dirs, siteOrigin: SITE_ORIGIN, extraOrigins: process.env.CLIPFARM_EXTRA_ORIGINS?.split(',').filter(Boolean) })
+const sidecar = new Sidecar({
+  dirs,
+  siteOrigin: SITE_ORIGIN,
+  extraOrigins: process.env.CLIPFARM_EXTRA_ORIGINS?.split(',').filter(Boolean),
+  whisperModel: () => store.get().selectedModel?.replace(/^whisper-/, '') ?? null,
+})
+const models = new ModelManager(dirs.models, dirs.downloads)
 let mainWindow: BrowserWindow | null = null
 let quitting = false
 
@@ -97,6 +105,55 @@ handle('shell:open-path', async (arg) => {
   return (await shell.openPath(target)) === ''
 })
 
+handle('terms:record', async (arg) => {
+  const versions = validateLegalVersions(arg)
+  // Trust the account, not the window: the server must already have stored these versions.
+  const user = await auth.fetchMe()
+  if (!user || user.termsVersion !== versions.terms || user.privacyVersion !== versions.privacy) throw new Error('The account has not recorded this acceptance yet.')
+  return store.update({ termsAccepted: { ...versions, at: String(user.termsAcceptedAt ?? new Date().toISOString()) } })
+})
+handle('pccheck:run', async () => {
+  const result = await runPcCheck({ dataDir: dirs.root, pipelinePort: () => (sidecar.getStatus().state === 'ready' ? sidecar.getStatus().port : null), pipelineToken: sidecar.token, emit: (item) => send('pccheck:item', item) })
+  store.update({ pcCheck: { allowed: true, completedAt: new Date().toISOString(), recommendedModel: result.recommendation.model } })
+  return result
+})
+handle('pccheck:skip', () => {
+  const recommendation = recommend({ memoryGb: 0, cores: 0, gflops: 0 }, false)
+  store.update({ pcCheck: { allowed: false, completedAt: null, recommendedModel: recommendation.model } })
+  return recommendation
+})
+handle('models:list', () => models.list())
+handle('models:download', (arg) => models.download(validateModelId(arg)))
+handle('models:pause', (arg) => {
+  models.pause(validateModelId(arg))
+  return true
+})
+handle('models:remove', (arg) => {
+  const id = validateModelId(arg)
+  if (store.get().selectedModel === id) throw new Error('This is the model in use. Choose another model first.')
+  models.remove(id)
+  return models.list()
+})
+handle('models:test', async (arg) => {
+  const id = validateModelId(arg)
+  if (!models.isInstalled(id)) throw new Error('Download the model first.')
+  const status = sidecar.getStatus()
+  if (status.state !== 'ready') throw new Error('The pipeline is not running yet.')
+  const response = await fetch(`http://127.0.0.1:${status.port}/models/test`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${sidecar.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ model: id.replace(/^whisper-/, '') }),
+  })
+  const data = (await response.json()) as ModelTest & { detail?: string }
+  if (!response.ok) throw new Error(data.detail ?? `The model test failed (${response.status}).`)
+  if (data.ok) {
+    const changed = store.get().selectedModel !== id
+    store.update({ selectedModel: id })
+    // The pipeline reads the model at start: restart it so new jobs use this one.
+    if (changed) sidecar.restart()
+  }
+  return data
+})
 handle('auth:status', () => auth.getStatus())
 handle('auth:start', () => auth.start())
 handle('auth:cancel', () => {
@@ -110,6 +167,7 @@ handle('auth:sign-out', async () => {
 
 sidecar.on('status', (status) => send('pipeline:status', status))
 auth.on('status', (status) => send('auth:status', status))
+models.on('progress', (progress) => send('models:progress', progress))
 
 // ---------------------------------------------------------------------------
 // Window
@@ -133,6 +191,8 @@ function createWindow() {
       nodeIntegration: false,
       webSecurity: true,
       spellcheck: false,
+      // The intro sound plays on every start, before any click.
+      autoplayPolicy: 'no-user-gesture-required',
       devTools: !app.isPackaged || process.env.CLIPFARM_DEVTOOLS === '1',
     },
   })
