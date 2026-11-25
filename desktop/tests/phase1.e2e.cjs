@@ -96,10 +96,10 @@ const check = (name, ok, detail = '') => {
   void before
   void portBefore
 
-  await page.getByRole('button', { name: 'Open Studio' }).click()
-  await page.getByRole('complementary', { name: 'Sources' }).waitFor({ timeout: 30000 })
-  check('Studio opens with the pipeline connected', true)
-  await page.screenshot({ path: `${OUT}/p1-studio.png` })
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Log in or sign up via browser' }).waitFor({ timeout: 30000 })
+  check('preparation continues to browser sign-in', true)
+  await page.screenshot({ path: `${OUT}/p1-signin.png` })
 
   await app.close()
   await new Promise((resolve) => setTimeout(resolve, 2000))

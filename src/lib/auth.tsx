@@ -61,7 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    await postJson<{ ok: true }>('/api/auth/logout', {})
+    // In the desktop app the main process holds the token: it revokes it on
+    // the server and deletes it from the encrypted vault.
+    const desktop = (window as { clipfarm?: { invoke: (channel: 'auth:sign-out') => Promise<unknown> } }).clipfarm
+    if (desktop) await desktop.invoke('auth:sign-out')
+    else await postJson<{ ok: true }>('/api/auth/logout', {})
     setUser(null)
   }, [])
 

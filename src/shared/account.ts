@@ -92,7 +92,18 @@ export type PublicUser = {
   billing: Billing | null
   planStartedAt: string | null
   planVerifiedAt: string | null
+  /** Google profile picture (https, googleusercontent.com) or null: show initials. */
+  avatarUrl: string | null
+  /** How the account runs Clipfarm. Only 'local' can be saved while cloud is not built. */
+  workMode: WorkMode | null
+  termsVersion: string | null
+  privacyVersion: string | null
+  termsAcceptedAt: string | null
 }
+
+export const WORK_MODES = ['local', 'cloud', 'both'] as const
+export type WorkMode = (typeof WORK_MODES)[number]
+export const isWorkMode = (value: unknown): value is WorkMode => WORK_MODES.includes(value as WorkMode)
 
 export const BILLINGS = ['monthly', 'quarterly'] as const
 export type Billing = (typeof BILLINGS)[number]

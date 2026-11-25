@@ -3,12 +3,14 @@ import { appendFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { IpcValidationError, validateExternalUrl, validateOpenPath, validateStatePatch, type Api, type AppInfo, type Channel, type Events } from '../shared/ipc'
+import { Auth } from './auth'
 import { log, setAppLog } from './log'
 import { appRoot, configurePaths, getDirs, rendererRoot } from './paths'
 import { runPrepare } from './prepare'
 import { APP_ORIGIN, handleProtocol, registerScheme } from './protocol'
 import { Sidecar } from './sidecar'
 import { StateStore } from './state'
+import { Vault } from './vault'
 
 // ---------------------------------------------------------------------------
 // Process setup (before ready)
@@ -33,6 +35,23 @@ const store = new StateStore(dirs.state)
 const sidecar = new Sidecar({ dirs, siteOrigin: SITE_ORIGIN, extraOrigins: process.env.CLIPFARM_EXTRA_ORIGINS?.split(',').filter(Boolean) })
 let mainWindow: BrowserWindow | null = null
 let quitting = false
+
+const vault = new Vault(dirs.vault)
+const auth = new Auth(vault, () => SITE_ORIGIN, () => focusWindow())
+
+/** Brings the window to the front, e.g. after signing in through the browser. */
+function focusWindow() {
+  if (!mainWindow) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  // Windows only lets a background app take focus briefly; this is the reliable way.
+  mainWindow.setAlwaysOnTop(true)
+  mainWindow.focus()
+  mainWindow.setAlwaysOnTop(false)
+  app.focus({ steal: true })
+}
+
+const deepLink = (argv: string[]) => argv.find((arg) => arg.startsWith('clipfarm://'))
 
 // ---------------------------------------------------------------------------
 // IPC: typed, validated, and only from our own page
@@ -78,7 +97,19 @@ handle('shell:open-path', async (arg) => {
   return (await shell.openPath(target)) === ''
 })
 
+handle('auth:status', () => auth.getStatus())
+handle('auth:start', () => auth.start())
+handle('auth:cancel', () => {
+  auth.cancel()
+  return auth.getStatus()
+})
+handle('auth:sign-out', async () => {
+  await auth.signOut()
+  return auth.getStatus()
+})
+
 sidecar.on('status', (status) => send('pipeline:status', status))
+auth.on('status', (status) => send('auth:status', status))
 
 // ---------------------------------------------------------------------------
 // Window
@@ -138,11 +169,14 @@ function lockDownSession() {
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-app.on('second-instance', () => {
-  if (!mainWindow) return
-  if (mainWindow.isMinimized()) mainWindow.restore()
-  mainWindow.show()
-  mainWindow.focus()
+app.on('second-instance', (_event, argv) => {
+  const link = deepLink(argv)
+  if (link) void auth.handleDeepLink(link)
+  focusWindow()
+})
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  void auth.handleDeepLink(url)
 })
 
 app.whenReady().then(async () => {
@@ -150,9 +184,11 @@ app.whenReady().then(async () => {
   lockDownSession()
   handleProtocol(rendererRoot(), {
     siteOrigin: () => SITE_ORIGIN,
-    accountToken: () => null,
-    onAccountUnauthorized: () => undefined,
-    onAccountReachable: () => undefined,
+    accountToken: () => auth.token(),
+    onAccountUnauthorized: () => auth.expire(),
+    onAccountReachable: (reachable) => auth.setOnline(reachable),
+    cachedUser: () => auth.cachedUser(),
+    onUser: (user) => auth.cacheUser(user),
     pipelinePort: () => (sidecar.getStatus().state === 'ready' ? sidecar.getStatus().port : null),
     pipelineToken: () => sidecar.token,
     webModelsDir: () => path.join(dirs.models, 'web'),
@@ -163,12 +199,22 @@ app.whenReady().then(async () => {
     return
   }
 
+  registerProtocolClient()
   // The pipeline starts with the app once first-run preparation has been done.
   const step = store.get().step
   if (!['welcome', 'usage', 'preparing'].includes(step)) sidecar.start()
+  await auth.restore()
   createWindow()
+  const link = deepLink(process.argv)
+  if (link) void auth.handleDeepLink(link)
   log(`app: started ${app.getVersion()} data=${dirs.root}`)
 })
+
+/** clipfarm:// links open this app. The installer registers it too; this covers development on Windows. */
+function registerProtocolClient() {
+  if (app.isPackaged) app.setAsDefaultProtocolClient('clipfarm')
+  else if (process.platform === 'win32') app.setAsDefaultProtocolClient('clipfarm', process.execPath, [appRoot()])
+}
 
 app.on('window-all-closed', () => app.quit())
 

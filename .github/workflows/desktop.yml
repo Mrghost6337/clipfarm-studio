@@ -60,6 +60,8 @@ jobs:
       - name: Install dependencies
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           bun install --frozen-lockfile
           cd desktop
           bun install --frozen-lockfile
@@ -73,6 +75,8 @@ jobs:
         working-directory: desktop
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           bun run typecheck
           bun run build
 
@@ -120,6 +124,8 @@ jobs:
         working-directory: desktop
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           npm install --no-save --no-package-lock playwright@1.63.0
           node tests/phase1.e2e.cjs "$env:RUNNER_TEMP\screens"
 

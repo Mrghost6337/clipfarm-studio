@@ -39,7 +39,13 @@ import { Toolkit } from './pages/Toolkit'
 
 const APP_ROUTES = ['/dashboard', '/plans', '/onboarding']
 /** Routes that replace the marketing chrome with the dashboard's own shell. */
-const SHELL_ROUTES = ['/dashboard', '/clip', '/studio', '/app-login']
+const SHELL_ROUTES = ['/dashboard', '/clip', '/studio', '/app-login', '/desktop']
+
+/** /app-login moved to /desktop/authorize; keep the query (state, challenge, redirect). */
+function AppLoginRedirect() {
+  const { search } = useLocation()
+  return <Navigate to={`/desktop/authorize${search}`} replace />
+}
 
 function ScrollManager() {
   const { pathname, hash } = useLocation()
@@ -80,7 +86,8 @@ function Pages() {
           <Route path="gta-6" element={<Gta6 />} />
           <Route path="local" element={<Local />} />
           <Route path="login" element={<Login />} />
-          <Route path="app-login" element={<AppLogin />} />
+          <Route path="desktop/authorize" element={<AppLogin />} />
+          <Route path="app-login" element={<AppLoginRedirect />} />
           <Route path="signup" element={<Login />} />
           <Route path="onboarding" element={<Onboarding />} />
           <Route path="plans" element={<Plans />} />

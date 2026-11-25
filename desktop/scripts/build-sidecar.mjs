@@ -16,7 +16,7 @@
 // Windows). The Linux build is for local testing of the packaged layout only.
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, createReadStream, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -103,7 +103,17 @@ async function main() {
     const home = args['python-home']
     if (!home || !existsSync(path.join(home, 'python.exe'))) throw new Error('--python-home must point at a CPython install (folder with python.exe)')
     log(`copying CPython from ${home}`)
-    cpSync(home, pyDir, { recursive: true, filter: (src) => !/[\\/](__pycache__|test|tests|idlelib|tkinter|turtledemo)([\\/]|$)/i.test(src.slice(home.length)) })
+    // python.exe is what the app runs; python3.exe / python3.12.exe are symlinks in
+    // some installs and break the installer archive, so they are left out.
+    cpSync(home, pyDir, {
+      recursive: true,
+      filter: (src) => {
+        const rel = src.slice(home.length)
+        if (/[\\/](__pycache__|test|tests|idlelib|tkinter|turtledemo)([\\/]|$)/i.test(rel)) return false
+        if (/^[\\/]python3(\.\d+)?\.exe$/i.test(rel)) return false
+        return !lstatSync(src).isSymbolicLink()
+      },
+    })
     python = path.join(pyDir, 'python.exe')
   } else {
     const base = args.python || 'python3'

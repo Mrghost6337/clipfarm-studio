@@ -62,6 +62,9 @@ export type ProxyHooks = {
   onAccountUnauthorized: () => void
   /** Called after each account API answer, so the app knows it is online. */
   onAccountReachable: (reachable: boolean) => void
+  /** The last profile the site returned, served by /api/auth/me while offline. */
+  cachedUser: () => Record<string, unknown> | null
+  onUser: (user: Record<string, unknown>) => void
   pipelinePort: () => number | null
   pipelineToken: () => string
   /** Folder the web Whisper weights are served from (/models/web/...). */
@@ -111,10 +114,25 @@ async function proxyAccount(request: Request, url: URL, hooks: ProxyHooks) {
   } catch (error) {
     hooks.onAccountReachable(false)
     log('proxy: account API unreachable', String(error))
+    // Offline start: the signed-in profile comes from the encrypted cache.
+    const cached = token && url.pathname === '/api/auth/me' ? hooks.cachedUser() : null
+    if (cached) return json(200, { user: cached, offline: true })
     return json(503, { error: 'You appear to be offline. Check your connection and try again.', offline: true })
   }
   hooks.onAccountReachable(true)
   if (response.status === 401 && token) hooks.onAccountUnauthorized()
+  if (url.pathname === '/api/auth/me' && response.ok && token) {
+    // The Worker answers { user: null } for a token it no longer knows.
+    const body = await response.text()
+    try {
+      const data = JSON.parse(body) as { user?: Record<string, unknown> | null }
+      if (data.user) hooks.onUser(data.user)
+      else hooks.onAccountUnauthorized()
+    } catch {
+      /* not JSON: pass it through */
+    }
+    return new Response(body, { status: response.status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } })
+  }
   const out = new Headers(response.headers)
   out.delete('set-cookie')
   out.set('cache-control', 'no-store')

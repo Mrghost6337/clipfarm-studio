@@ -58,6 +58,10 @@ export type Api = {
   'shell:open-external': { arg: string; result: boolean }
   'shell:open-path': { arg: 'logs' | 'data' | 'clips'; result: boolean }
   'shell:show-file': { arg: string; result: boolean }
+  'auth:status': { arg: void; result: AuthStatus }
+  'auth:start': { arg: void; result: AuthStatus }
+  'auth:cancel': { arg: void; result: AuthStatus }
+  'auth:sign-out': { arg: void; result: AuthStatus }
 }
 
 export type Channel = keyof Api
@@ -65,6 +69,7 @@ export type Channel = keyof Api
 export type Events = {
   'pipeline:status': PipelineStatus
   'prepare:line': PrepareLine
+  'auth:status': AuthStatus
 }
 
 // ---------------------------------------------------------------------------

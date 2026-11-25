@@ -59,7 +59,7 @@ export function Boot({ onReady }: { onReady: () => void }) {
         <div className="mt-6 flex flex-wrap items-center gap-3">
           {ok && (
             <Button onClick={onReady} disabled={pipeline?.state !== 'ready'}>
-              Open Studio
+              Continue
             </Button>
           )}
           {ok === false && (

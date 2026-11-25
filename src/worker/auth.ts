@@ -1,7 +1,8 @@
 import { Hono, type Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
-import { CHECKOUT_AVAILABLE, EMAIL_RE, isBilling, isPlanId, validateProfile, type PublicUser } from '../shared/account'
+import { CHECKOUT_AVAILABLE, EMAIL_RE, isBilling, isPlanId, isWorkMode, validateProfile, type PublicUser } from '../shared/account'
+import { PRIVACY_VERSION, TERMS_VERSION } from '../shared/legal'
 
 // Accounts for Clipfarm Studio. Users and sessions live in D1 (binding DB);
 // passwords are PBKDF2-SHA256 hashes with a per-user salt and sessions are
@@ -49,13 +50,22 @@ type UserRow = {
   plan_verified_at: string | null
   payment_provider: string | null
   payment_ref: string | null
+  avatar_url: string | null
+  work_mode: string | null
+  terms_version: string | null
+  privacy_version: string | null
+  terms_accepted_at: string | null
 }
 
 export type { PublicUser } from '../shared/account'
 
 const SESSION_COOKIE = 'clipfarm_session'
 const OAUTH_STATE_COOKIE = 'clipfarm_oauth_state'
+const OAUTH_NEXT_COOKIE = 'clipfarm_oauth_next'
 const SESSION_SECONDS = 60 * 60 * 24 * 30
+/** Desktop sessions slide: used within the last 15 days of their life, they get 30 more. */
+const RENEW_WITHIN_SECONDS = 60 * 60 * 24 * 15
+const DEVICE_ID_RE = /^[a-f0-9]{16}$/
 const PBKDF2_ITERATIONS = 100_000
 const MIN_PASSWORD = 8
 
@@ -140,6 +150,18 @@ const COLUMNS = [
   ['plan_verified_at', 'TEXT'],
   ['payment_provider', 'TEXT'],
   ['payment_ref', 'TEXT'],
+  ['avatar_url', 'TEXT'],
+  ['work_mode', 'TEXT'],
+  ['terms_version', 'TEXT'],
+  ['privacy_version', 'TEXT'],
+  ['terms_accepted_at', 'TEXT'],
+] as const
+
+const SESSION_COLUMNS = [
+  ['kind', "TEXT NOT NULL DEFAULT 'web'"],
+  ['device_name', 'TEXT'],
+  ['created_at', 'TEXT'],
+  ['last_used_at', 'TEXT'],
 ] as const
 
 const schemas = new WeakMap<object, Promise<void>>()
@@ -152,6 +174,11 @@ async function migrate(db: D1Like) {
   const existing = new Set((info.results ?? []).map((row) => row.name))
   for (const [name, type] of COLUMNS) {
     if (!existing.has(name)) await db.prepare(`ALTER TABLE users ADD COLUMN ${name} ${type}`).run()
+  }
+  const sessionInfo = await db.prepare('PRAGMA table_info(sessions)').all<{ name: string }>()
+  const sessionColumns = new Set((sessionInfo.results ?? []).map((row) => row.name))
+  for (const [name, type] of SESSION_COLUMNS) {
+    if (!sessionColumns.has(name)) await db.prepare(`ALTER TABLE sessions ADD COLUMN ${name} ${type}`).run()
   }
 }
 
@@ -195,13 +222,39 @@ const publicUser = (row: UserRow): PublicUser => ({
   billing: isBilling(row.billing) && row.plan_verified_at ? row.billing : null,
   planStartedAt: row.plan_verified_at ? row.plan_started_at : null,
   planVerifiedAt: row.plan_verified_at,
+  avatarUrl: safeAvatar(row.avatar_url),
+  workMode: isWorkMode(row.work_mode) ? row.work_mode : null,
+  termsVersion: row.terms_version,
+  privacyVersion: row.privacy_version,
+  termsAcceptedAt: row.terms_accepted_at,
 })
 
-async function startSession(db: D1Like, userId: string) {
+/** Only https pictures from Google's avatar host are kept. */
+function safeAvatar(value: string | null | undefined) {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname.endsWith('.googleusercontent.com') ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
+async function startSession(db: D1Like, userId: string, kind: 'web' | 'desktop' = 'web', deviceName: string | null = null) {
   const token = randomHex(32)
-  const expires = new Date(Date.now() + SESSION_SECONDS * 1000).toISOString()
-  await db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').bind(await sha256Hex(token), userId, expires).run()
+  const now = new Date()
+  const expires = new Date(now.getTime() + SESSION_SECONDS * 1000).toISOString()
+  await db
+    .prepare('INSERT INTO sessions (token_hash, user_id, expires_at, kind, device_name, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .bind(await sha256Hex(token), userId, expires, kind, deviceName, now.toISOString(), now.toISOString())
+    .run()
   return token
+}
+
+/** A device name the app sends, shown in the account's device list. */
+function cleanDeviceName(value: unknown) {
+  const name = typeof value === 'string' ? value.replace(/[^\p{L}\p{N} ._()'-]/gu, '').trim().slice(0, 60) : ''
+  return name || 'Clipfarm Studio'
 }
 
 const auth = new Hono<{ Bindings: AuthBindings }>()
@@ -225,12 +278,21 @@ const str = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
 
 /** The signed-in account, or null. Used by the dashboard routes too. */
 export async function currentUser(c: Context<{ Bindings: AuthBindings }>): Promise<PublicUser | null> {
-  const token = bearerToken(c) ?? getCookie(c, SESSION_COOKIE)
+  const bearer = bearerToken(c)
+  const token = bearer ?? getCookie(c, SESSION_COOKIE)
   if (!token) return null
-  const row = await c.env.DB.prepare('SELECT * FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?')
-    .bind(await sha256Hex(token), new Date().toISOString())
-    .first<UserRow>()
+  const tokenHash = await sha256Hex(token)
+  const now = new Date()
+  const row = await c.env.DB.prepare('SELECT u.*, s.kind AS session_kind, s.expires_at AS session_expires FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?')
+    .bind(tokenHash, now.toISOString())
+    .first<UserRow & { session_kind: string | null; session_expires: string }>()
   if (!row) return null
+  if (bearer) {
+    // Desktop tokens stay valid while the app is used: renew in the last 15 days.
+    const renew = row.session_kind === 'desktop' && new Date(row.session_expires).getTime() - now.getTime() < RENEW_WITHIN_SECONDS * 1000
+    const expires = renew ? new Date(now.getTime() + SESSION_SECONDS * 1000).toISOString() : row.session_expires
+    await c.env.DB.prepare('UPDATE sessions SET last_used_at = ?, expires_at = ? WHERE token_hash = ?').bind(now.toISOString(), expires, tokenHash).run()
+  }
   if (row.email.toLowerCase() === ADMIN_EMAIL && row.role !== 'admin') {
     await c.env.DB.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(row.id).run()
     row.role = 'admin'
@@ -284,6 +346,11 @@ auth.post('/signup', async (c) => {
     plan_verified_at: null,
     payment_provider: null,
     payment_ref: null,
+    avatar_url: null,
+    work_mode: null,
+    terms_version: null,
+    privacy_version: null,
+    terms_accepted_at: null,
   }
   await c.env.DB.prepare('INSERT INTO users (id, email, name, password_hash, google_id, created_at, role) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .bind(row.id, row.email, row.name, row.password_hash, null, row.created_at, row.role)
@@ -315,8 +382,10 @@ auth.post('/login', async (c) => {
 })
 
 auth.post('/logout', async (c) => {
-  const token = getCookie(c, SESSION_COOKIE)
-  if (token) await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256Hex(token)).run()
+  // Revokes whichever credential made the call: the web cookie or a desktop token.
+  for (const token of [getCookie(c, SESSION_COOKIE), bearerToken(c)]) {
+    if (token) await c.env.DB.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(await sha256Hex(token)).run()
+  }
   deleteCookie(c, SESSION_COOKIE, { path: '/' })
   deleteCookie(c, OAUTH_STATE_COOKIE, { path: '/' })
   return c.json({ ok: true })
@@ -385,7 +454,7 @@ auth.post('/app/authorize', async (c) => {
 // The desktop app exchanges the code with its private PKCE verifier. No cookie
 // is involved, so the app never needs the browser session.
 auth.post('/app/token', async (c) => {
-  const input = await readJson<{ code?: unknown; verifier?: unknown }>(c.req.raw)
+  const input = await readJson<{ code?: unknown; verifier?: unknown; deviceName?: unknown }>(c.req.raw)
   const code = str(input.code).toLowerCase()
   const verifier = typeof input.verifier === 'string' ? input.verifier : ''
   if (!APP_CODE_RE.test(code) || verifier.length < 43 || verifier.length > 128) {
@@ -412,7 +481,65 @@ auth.post('/app/token', async (c) => {
   const user = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(row.user_id).first<UserRow>()
   if (!user) return c.json({ error: 'That account no longer exists.' }, 401)
 
-  return c.json({ token: await startSession(c.env.DB, user.id), user: publicUser(user) }, 200, { 'cache-control': 'no-store' })
+  const token = await startSession(c.env.DB, user.id, 'desktop', cleanDeviceName(input.deviceName))
+  return c.json({ token, user: publicUser(user) }, 200, { 'cache-control': 'no-store' })
+})
+
+// Signed-in desktop apps for this account, newest first. The id is a prefix of
+// the token's hash: enough to revoke it, useless as a credential.
+auth.get('/devices', async (c) => {
+  const user = await currentUser(c)
+  if (!user) return c.json({ error: 'Log in first.' }, 401)
+  const current = bearerToken(c)
+  const currentHash = current ? await sha256Hex(current) : null
+  const rows = await c.env.DB.prepare("SELECT token_hash, device_name, created_at, last_used_at, expires_at FROM sessions WHERE user_id = ? AND kind = 'desktop' AND expires_at > ? ORDER BY last_used_at DESC")
+    .bind(user.id, new Date().toISOString())
+    .all<{ token_hash: string; device_name: string | null; created_at: string | null; last_used_at: string | null; expires_at: string }>()
+  return c.json({
+    devices: (rows.results ?? []).map((row) => ({
+      id: row.token_hash.slice(0, 16),
+      name: row.device_name ?? 'Clipfarm Studio',
+      createdAt: row.created_at,
+      lastUsedAt: row.last_used_at,
+      expiresAt: row.expires_at,
+      current: row.token_hash === currentHash,
+    })),
+  })
+})
+
+auth.delete('/devices/:id', async (c) => {
+  const user = await currentUser(c)
+  if (!user) return c.json({ error: 'Log in first.' }, 401)
+  const id = c.req.param('id')
+  if (!DEVICE_ID_RE.test(id)) return c.json({ error: 'Unknown device.' }, 400)
+  const result = (await c.env.DB.prepare("DELETE FROM sessions WHERE user_id = ? AND kind = 'desktop' AND substr(token_hash, 1, 16) = ?").bind(user.id, id).run()) as { meta?: { changes?: number } }
+  if (result?.meta?.changes === 0) return c.json({ error: 'That device is already signed out.' }, 404)
+  return c.json({ ok: true })
+})
+
+// Records that the account accepted the current Terms and Privacy Policy.
+auth.post('/terms', async (c) => {
+  const user = await currentUser(c)
+  if (!user) return c.json({ error: 'Log in first.' }, 401)
+  const input = await readJson<{ terms?: unknown; privacy?: unknown }>(c.req.raw)
+  if (input.terms !== TERMS_VERSION || input.privacy !== PRIVACY_VERSION) {
+    return c.json({ error: 'These are not the current Terms and Privacy Policy. Reload and read them again.', terms: TERMS_VERSION, privacy: PRIVACY_VERSION }, 409)
+  }
+  await c.env.DB.prepare('UPDATE users SET terms_version = ?, privacy_version = ?, terms_accepted_at = ? WHERE id = ?')
+    .bind(TERMS_VERSION, PRIVACY_VERSION, new Date().toISOString(), user.id)
+    .run()
+  return c.json({ user: await currentUser(c) })
+})
+
+// How the account wants to run Clipfarm. Only Local exists today.
+auth.patch('/preferences', async (c) => {
+  const user = await currentUser(c)
+  if (!user) return c.json({ error: 'Log in first.' }, 401)
+  const input = await readJson<{ workMode?: unknown }>(c.req.raw)
+  if (!isWorkMode(input.workMode)) return c.json({ error: 'Choose Local, Cloud or Both.' }, 400)
+  if (input.workMode !== 'local') return c.json({ error: 'Cloud processing is not available yet. Choose Local.', code: 'cloud_unavailable' }, 409)
+  await c.env.DB.prepare('UPDATE users SET work_mode = ? WHERE id = ?').bind(input.workMode, user.id).run()
+  return c.json({ user: await currentUser(c) })
 })
 
 auth.get('/google', (c) => {
@@ -422,6 +549,9 @@ auth.get('/google', (c) => {
 
   const state = randomHex(16)
   setCookie(c, OAUTH_STATE_COOKIE, state, { httpOnly: true, sameSite: 'Lax', secure: secureCookie(c.req.url), path: '/', maxAge: 600 })
+  const next = safeNext(c.req.query('next'))
+  if (next) setCookie(c, OAUTH_NEXT_COOKIE, next, { httpOnly: true, sameSite: 'Lax', secure: secureCookie(c.req.url), path: '/', maxAge: 600 })
+  else deleteCookie(c, OAUTH_NEXT_COOKIE, { path: '/' })
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
@@ -460,7 +590,8 @@ auth.get('/google/callback', async (c) => {
 
   const infoRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', { headers: { authorization: `Bearer ${tokens.access_token}` } })
   if (!infoRes.ok) return c.redirect('/login?error=google')
-  const info = (await infoRes.json()) as { sub?: string; email?: string; email_verified?: boolean; name?: string }
+  const info = (await infoRes.json()) as { sub?: string; email?: string; email_verified?: boolean; name?: string; picture?: string }
+  const picture = safeAvatar(info.picture)
   const email = (info.email ?? '').toLowerCase()
   if (!info.sub || !info.email || !email) return c.redirect('/login?error=google')
 
@@ -469,16 +600,27 @@ auth.get('/google/callback', async (c) => {
   if (existing) {
     userId = existing.id
     if (!existing.google_id) await c.env.DB.prepare('UPDATE users SET google_id = ? WHERE id = ?').bind(info.sub, existing.id).run()
+    if (picture && picture !== existing.avatar_url) await c.env.DB.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').bind(picture, existing.id).run()
     if (email === ADMIN_EMAIL && existing.role !== 'admin') await c.env.DB.prepare("UPDATE users SET role = 'admin' WHERE id = ?").bind(existing.id).run()
   } else {
     userId = crypto.randomUUID()
-    await c.env.DB.prepare('INSERT INTO users (id, email, name, password_hash, google_id, created_at, role) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(userId, email, str(info.name) || email.split('@')[0], null, info.sub, new Date().toISOString(), email === ADMIN_EMAIL ? 'admin' : 'member')
+    await c.env.DB.prepare('INSERT INTO users (id, email, name, password_hash, google_id, created_at, role, avatar_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(userId, email, str(info.name) || email.split('@')[0], null, info.sub, new Date().toISOString(), email === ADMIN_EMAIL ? 'admin' : 'member', picture)
       .run()
   }
 
   setSessionCookie(c, await startSession(c.env.DB, userId), c.req.url)
-  return c.redirect('/dashboard')
+  const next = safeNext(getCookie(c, OAUTH_NEXT_COOKIE))
+  deleteCookie(c, OAUTH_NEXT_COOKIE, { path: '/' })
+  return c.redirect(next ?? '/dashboard')
 })
+
+/** Where Google sign-in may return to: only our own desktop sign-in page or the dashboard. */
+function safeNext(value: string | undefined | null) {
+  if (!value || value.length > 1500) return null
+  if (!value.startsWith('/desktop/authorize') && !value.startsWith('/dashboard')) return null
+  if (value.startsWith('//') || value.includes('\\') || /[\r\n]/.test(value)) return null
+  return value
+}
 
 export default auth

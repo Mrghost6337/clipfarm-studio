@@ -128,6 +128,32 @@ export function PipelineConnect({ failure, onRetry }: Props) {
     )
   }
 
+  // Inside the desktop app the main process runs the pipeline: offer a restart, not setup commands.
+  const desktop = (window as { clipfarm?: { invoke: (channel: string, arg?: unknown) => Promise<unknown> } }).clipfarm
+  if (desktop) {
+    return shell(
+      { text: 'Pipeline offline', tone: 'danger' },
+      'The pipeline is not answering',
+      <>
+        <p>{failure || 'Clipfarm starts it for you and restarts it after a crash. If it keeps failing, restart it here or open the logs.'}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              void desktop.invoke('pipeline:restart')
+              onRetry?.()
+            }}
+          >
+            Restart the pipeline
+          </Button>
+          <Button variant="secondary" onClick={() => void desktop.invoke('shell:open-path', 'logs')}>
+            Open logs
+          </Button>
+        </div>
+      </>,
+      <AlertTriangle aria-hidden className="size-3.5" />,
+    )
+  }
+
   // offline, or ready but a request failed
   const proxy = pipelineMode() === 'proxy'
   return shell(

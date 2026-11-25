@@ -11,7 +11,7 @@
     "build:renderer": "cd .. && bunx vite build -c vite.desktop.config.ts",
     "build:main": "bun build src/main/index.ts --target=node --format=cjs --external electron --outfile dist/main/index.js && bun build src/preload/index.ts --target=node --format=cjs --external electron --outfile dist/preload/index.js",
     "build": "bun run build:main && bun run build:renderer && bun run vendor",
-    "typecheck": "../node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "typecheck": "node ../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
     "test": "bun test src",
     "start": "electron .",
     "dist:win": "electron-builder --win --publish never",
