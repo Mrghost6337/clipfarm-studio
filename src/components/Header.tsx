@@ -1,4 +1,4 @@
-import { BookOpen, ChevronDown, Clapperboard, FileText, HelpCircle, History, Menu, Sparkles, Workflow } from 'lucide-react'
+import { BookOpen, ChevronDown, Clapperboard, Download, FileText, HelpCircle, History, Menu, Sparkles, Workflow } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router'
@@ -10,7 +10,7 @@ import { Logo } from './Logo'
 import { Drawer } from './Overlay'
 
 type Item = { label: string; to: string; text?: string; icon?: typeof Clapperboard }
-type Group = { label: string; to?: string; children?: Item[] }
+type Group = { label: string; to?: string; icon?: typeof Clapperboard; children?: Item[] }
 
 const PRODUCT: Item[] = [
   { label: 'Studio', to: '/studio', text: 'Sources, editor and inspector in one workspace', icon: Clapperboard },
@@ -25,12 +25,13 @@ const RESOURCES: Item[] = [
 const NAV: Group[] = [
   { label: 'Product', to: '/product', children: PRODUCT },
   { label: 'Pricing', to: '/pricing' },
+  { label: 'Download', to: '/download', icon: Download },
   { label: 'Resources', to: '/resources', children: RESOURCES },
   { label: 'About', to: '/about' },
   { label: 'Contact', to: '/contact' },
 ]
 
-const link = 'inline-flex h-10 items-center gap-1 rounded-full px-3 text-[0.95rem] font-medium text-ink-2 transition-colors hover:bg-ink/[0.04] hover:text-ink'
+const link = 'inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[0.95rem] font-medium text-ink-2 transition-colors hover:bg-ink/[0.04] hover:text-ink'
 const activeLink = 'bg-ink/[0.06] text-ink'
 
 function Dropdown({ group }: { group: Group }) {
@@ -182,6 +183,7 @@ export function Header() {
               <Dropdown key={group.label} group={group} />
             ) : (
               <NavLink key={group.label} to={group.to!} className={({ isActive }) => cx(link, isActive && activeLink)}>
+                {group.icon && <group.icon aria-hidden className="size-4" strokeWidth={2.2} />}
                 {group.label}
               </NavLink>
             ),
@@ -226,7 +228,8 @@ export function Header() {
                   ))}
                 </>
               ) : (
-                <NavLink to={group.to!} className={({ isActive }) => cx('flex min-h-12 items-center rounded-[var(--radius-sm)] px-3 text-[1.1rem] font-semibold hover:bg-sand', isActive && 'bg-sand')}>
+                <NavLink to={group.to!} className={({ isActive }) => cx('flex min-h-12 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-[1.1rem] font-semibold hover:bg-sand', isActive && 'bg-sand')}>
+                  {group.icon && <group.icon aria-hidden className="size-4.5 text-accent-ink" />}
                   {group.label}
                 </NavLink>
               )}
