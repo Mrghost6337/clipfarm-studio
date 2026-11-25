@@ -5,78 +5,86 @@ import { cx } from '../lib/cx'
 
 type Client = (typeof CLIENTS)[number]
 
-// Invented client marks, drawn in SVG and type. Replace with your clients' logos (with permission).
+// Invented channel marks, drawn in SVG and type. Replace with real channel art (with permission).
 const MARKS: Record<Client, { mark: ReactNode; word: ReactNode }> = {
-  Halden: {
+  NovaPlays: {
     mark: (
       <svg viewBox="0 0 32 32" className="size-8">
-        <rect x="3" y="3" width="26" height="26" rx="8" fill="none" stroke="currentColor" strokeWidth="3" />
-        <path d="M11 9v14M21 9v14M11 16h10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        <path d="M16 2l3.6 10.4L30 16l-10.4 3.6L16 30l-3.6-10.4L2 16l10.4-3.6Z" fill="currentColor" />
       </svg>
     ),
-    word: <span className="text-[1.6rem] font-normal tracking-[-0.04em]">halden</span>,
+    word: <span className="text-[1.55rem] font-bold tracking-[-0.05em]">novaplays</span>,
   },
-  Northloop: {
+  LoudHouse: {
     mark: (
       <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M16 3a13 13 0 1 0 13 13" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-        <path d="M22 4l7 0 0 7" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="3" y="13" width="5" height="6" rx="1.5" fill="currentColor" />
+        <rect x="11" y="6" width="5" height="20" rx="1.5" fill="currentColor" />
+        <rect x="19" y="2" width="5" height="28" rx="1.5" fill="currentColor" />
+        <rect x="27" y="11" width="3" height="10" rx="1.5" fill="currentColor" />
       </svg>
     ),
-    word: <span className="text-[1.6rem] font-bold tracking-[-0.05em]">NORTHLOOP</span>,
+    word: <span className="text-[1.5rem] font-semibold tracking-[-0.02em]">LOUDHOUSE</span>,
   },
-  Kestrel: {
+  PixelPunch: {
     mark: (
       <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M2 20 16 6l6 6 8-4-6 14H12Z" fill="currentColor" />
-      </svg>
-    ),
-    word: <span className="text-[1.65rem] font-extrabold italic tracking-[-0.04em]">kestrel</span>,
-  },
-  Brightwater: {
-    mark: (
-      <svg viewBox="0 0 32 32" className="size-8">
-        <circle cx="16" cy="11" r="7" fill="currentColor" />
-        <path d="M3 22c4-3 7-3 10 0s7 3 10 0 5-3 6-2M3 28c4-3 7-3 10 0s7 3 10 0 5-3 6-2" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-      </svg>
-    ),
-    word: <span className="text-[1.3rem] font-semibold tracking-[0.02em]">BRIGHTWATER</span>,
-  },
-  Oakfield: {
-    mark: (
-      <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M16 2c6 0 10 4 10 9 0 4-3 6-6 7v12h-8V18c-3-1-6-3-6-7 0-5 4-9 10-9Z" fill="currentColor" />
-      </svg>
-    ),
-    word: <span className="font-[Georgia,serif] text-[1.65rem] font-semibold italic tracking-[-0.02em]">Oakfield</span>,
-  },
-  Tidecraft: {
-    mark: (
-      <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M4 10h24M4 16h18M4 22h12" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <rect x="3" y="3" width="8" height="8" fill="currentColor" />
+        <rect x="14" y="3" width="8" height="8" fill="currentColor" opacity="0.55" />
+        <rect x="3" y="14" width="8" height="8" fill="currentColor" opacity="0.55" />
+        <rect x="14" y="14" width="8" height="8" fill="currentColor" />
+        <rect x="25" y="14" width="4" height="4" fill="currentColor" />
+        <rect x="14" y="25" width="8" height="4" fill="currentColor" />
       </svg>
     ),
     word: (
-      <span className="text-[1.55rem] tracking-[-0.03em]">
-        Tide<b className="font-extrabold">CRAFT</b>
+      <span className="text-[1.45rem] tracking-[-0.03em]">
+        Pixel<b className="font-extrabold">Punch</b>
       </span>
     ),
   },
-  'Lumen&Co': {
+  CheeseGang: {
     mark: (
       <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M16 2l3.5 10.5L30 16l-10.5 3.5L16 30l-3.5-10.5L2 16l10.5-3.5Z" fill="currentColor" />
+        <path d="M2 8h28L4 27H2V8Z" fill="currentColor" />
+        <circle cx="9" cy="14" r="2.2" fill="#f2f2f0" />
+        <circle cx="16" cy="19" r="1.6" fill="#f2f2f0" />
       </svg>
     ),
-    word: <span className="text-[1.6rem] font-medium tracking-[-0.03em]">lumen&amp;co</span>,
+    word: <span className="text-[1.4rem] font-black tracking-[-0.04em]">CHEESEGANG</span>,
   },
-  Fernway: {
+  NightOwl: {
     mark: (
       <svg viewBox="0 0 32 32" className="size-8">
-        <path d="M6 28C6 14 14 5 28 4 27 18 18 26 6 28Zm0 0 14-14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M21 2a14 14 0 1 0 9 22A15 15 0 0 1 21 2Z" fill="currentColor" />
       </svg>
     ),
-    word: <span className="text-[1.6rem] font-black tracking-[-0.06em]">fernway</span>,
+    word: <span className="font-[Georgia,serif] text-[1.55rem] font-semibold italic tracking-[-0.02em]">NightOwl</span>,
+  },
+  Stackd: {
+    mark: (
+      <svg viewBox="0 0 32 32" className="size-8">
+        <path d="M4 8h24M7 16h18M11 24h10" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    ),
+    word: <span className="text-[1.6rem] font-extrabold tracking-[-0.06em]">stackd</span>,
+  },
+  RageQuit: {
+    mark: (
+      <svg viewBox="0 0 32 32" className="size-8">
+        <path d="M16 2c3 6 3 8 1 11 3-1 4-3 4-5 4 4 6 8 6 12a11 11 0 0 1-22 0c0-4 2-8 6-11-1 4 0 6 2 7-1-5 0-10 3-14Z" fill="currentColor" />
+      </svg>
+    ),
+    word: <span className="text-[1.5rem] font-extrabold italic tracking-[-0.045em]">ragequit</span>,
+  },
+  ClipCity: {
+    mark: (
+      <svg viewBox="0 0 32 32" className="size-8">
+        <rect x="3" y="4" width="26" height="24" rx="7" fill="none" stroke="currentColor" strokeWidth="3" />
+        <path d="M14 11.5v9l7.5-4.5-7.5-4.5Z" fill="currentColor" />
+      </svg>
+    ),
+    word: <span className="text-[1.55rem] font-semibold tracking-[-0.04em]">clipcity</span>,
   },
 }
 

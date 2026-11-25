@@ -12,21 +12,21 @@ import { Tag } from '../components/Pill'
 import { Reveal } from '../components/Reveal'
 import { Segmented } from '../components/Segmented'
 import { useToast } from '../components/Toast'
-import { PLAN_PAGE } from '../content'
+import { PLAN_PAGE, SITE } from '../content'
 import { cx } from '../lib/cx'
 import { readJson, writeJson } from '../lib/storage'
 import { usePageTitle } from '../lib/title'
 
 type StageId = (typeof PLAN_PAGE.stages)[number]['id']
-const TICKS_KEY = 'pfp.plan.ticks'
-const STAGE_KEY = 'pfp.plan.stage'
+const TICKS_KEY = `${SITE.storagePrefix}.pipeline.ticks`
+const STAGE_KEY = `${SITE.storagePrefix}.pipeline.stage`
 
 const allItems = PLAN_PAGE.phases.flatMap((p) => p.weeks.flatMap((w) => w.items.map((item) => `${p.id}:${item}`)))
 
 export function PlanPage() {
-  usePageTitle('90-day plan')
+  usePageTitle('The pipeline')
   const toast = useToast()
-  const [stage, setStage] = useState<StageId>(() => readJson<StageId>(STAGE_KEY, 'series-a'))
+  const [stage, setStage] = useState<StageId>(() => readJson<StageId>(STAGE_KEY, 'growing'))
   const [ticks, setTicks] = useState<string[]>(() => readJson<string[]>(TICKS_KEY, []).filter((t) => allItems.includes(t)))
   const [confirm, setConfirm] = useState(false)
   const current = PLAN_PAGE.stages.find((s) => s.id === stage)!
@@ -73,7 +73,7 @@ export function PlanPage() {
       <section className="sticky top-[92px] z-30 sm:top-[106px]">
         <Container>
           <div className="flex items-center gap-4 rounded-full bg-paper/95 py-2 pr-2 pl-5 shadow-[var(--shadow-card)] backdrop-blur">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Plan progress">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-ink/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Pipeline progress">
               <motion.div className="h-full rounded-full bg-accent" animate={{ width: `${pct}%` }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} />
             </div>
             <span className="text-[0.875rem] whitespace-nowrap text-body">

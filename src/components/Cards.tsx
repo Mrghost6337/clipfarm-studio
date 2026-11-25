@@ -39,7 +39,7 @@ export function CaseCard({ study, className }: { study: CaseStudy; className?: s
       <div className="flex flex-1 flex-col gap-4 p-6">
         <div className="flex items-center justify-between gap-3">
           <ClientLogo name={study.client} className="origin-left scale-[0.72]" />
-          <Tag>{study.stage}</Tag>
+          <Tag>{study.platform}</Tag>
         </div>
         <h3 className="text-[1.25rem] leading-snug font-semibold tracking-[-0.025em] text-balance">{study.title}</h3>
         <p className="text-[0.95rem] leading-relaxed text-body">{study.summary}</p>

@@ -1,9 +1,9 @@
-import { Compass, GraduationCap, Scale, ShieldCheck, Sparkles, Users } from 'lucide-react'
+import { AudioWaveform, Captions, ScanFace, Scissors, Smartphone, Wallet } from 'lucide-react'
 
 import type { Service } from '../content'
 import { cx } from '../lib/cx'
 
-const ICONS = { compass: Compass, users: Users, scale: Scale, shield: ShieldCheck, sparkles: Sparkles, graduation: GraduationCap }
+const ICONS = { scissors: Scissors, scanface: ScanFace, captions: Captions, audio: AudioWaveform, phone: Smartphone, wallet: Wallet }
 
 export function ServiceIcon({ icon, className }: { icon: Service['icon']; className?: string }) {
   const Icon = ICONS[icon]

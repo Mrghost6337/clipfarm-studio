@@ -77,7 +77,7 @@ export function SelectField({ label, hint, error, optional, className, force, id
 /** A form-level message: error, success or info. */
 export function Notice({ tone = 'error', children, className }: { tone?: 'error' | 'success' | 'info'; children: ReactNode; className?: string }) {
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={cx('rounded-[var(--radius-md)] px-4 py-3 text-[0.9rem] font-medium', tone === 'error' && 'bg-[#fbe9ea] text-danger', tone === 'success' && 'bg-[#e5f3ea] text-success', tone === 'info' && 'bg-sand text-ink-2', className)}>
+    <div role={tone === 'error' ? 'alert' : 'status'} className={cx('rounded-[var(--radius-md)] px-4 py-3 text-[0.9rem] font-medium', tone === 'error' && 'bg-danger-soft text-danger', tone === 'success' && 'bg-success-soft text-success', tone === 'info' && 'bg-sand text-ink-2', className)}>
       {children}
     </div>
   )

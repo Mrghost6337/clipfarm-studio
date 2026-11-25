@@ -1,25 +1,39 @@
-import { ArrowRight } from 'lucide-react'
-import { motion } from 'motion/react'
+import { ArrowRight, Plus } from 'lucide-react'
+import { motion, useScroll, useSpring, useTransform } from 'motion/react'
+import { useRef } from 'react'
 import { Link } from 'react-router'
 
 import { ArrowLink, ButtonLink } from '../components/Button'
-import { CaseCard, QuoteBlock, ServiceCard } from '../components/Cards'
+import { QuoteBlock, ServiceCard } from '../components/Cards'
 import { Stat } from '../components/Card'
 import { CheckPoint } from '../components/CheckItem'
-import { ClientLogo } from '../components/ClientLogos'
+import { CreatorCard, CreatorChip } from '../components/CreatorCard'
 import { Container } from '../components/Container'
+import { GtaClipRail } from '../components/GtaClipRail'
 import { CtaBand } from '../components/CtaBand'
 import { Accordion } from '../components/Accordion'
-import { Badge, CheckPill } from '../components/Pill'
+import { Badge, CheckPill, Tag } from '../components/Pill'
 import { Marquee } from '../components/Marquee'
 import { SocialProof } from '../components/Proof'
 import { Reveal } from '../components/Reveal'
 import { Scribble } from '../components/Scribble'
 import { SectionHeading } from '../components/SectionHeading'
-import { CASES, CLIENTS, FAQS, HERO, HOME, IMAGES, PLAN_PAGE, SERVICES } from '../content'
+import { CREATORS, CREATORS_NOTE, FAQS, GTA, HERO, HOME, IMAGES, PLAN_PAGE, SERVICES, TOOLS } from '../content'
 import { usePageTitle } from '../lib/title'
 
 const rise = (delay: number) => ({ initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] as const } })
+
+function ReadingProgress() {
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, { stiffness: 130, damping: 26, restDelta: 0.001 })
+  return (
+    <motion.div
+      aria-hidden
+      style={{ scaleX }}
+      className="fixed inset-x-0 top-0 z-[70] h-[3px] origin-left bg-gradient-to-r from-apricot via-accent to-accent-ink"
+    />
+  )
+}
 
 function Hero() {
   return (
@@ -32,7 +46,7 @@ function Hero() {
         <motion.div {...rise(0)}>
           <Badge avatar={IMAGES.avatarFounder}>{HERO.badge}</Badge>
         </motion.div>
-        <motion.h1 {...rise(0.08)} className="mt-6 text-[2.5rem] leading-[1.08] font-semibold tracking-[-0.022em] text-ink sm:text-[3.6rem] lg:text-[4.15rem] lg:leading-[1.13]">
+        <motion.h1 {...rise(0.08)} className="mt-6 text-[2.5rem] leading-[1.08] font-semibold tracking-[-0.022em] text-balance text-ink sm:text-[3.6rem] lg:text-[4.15rem] lg:leading-[1.13]">
           {HERO.title[0]}
           <br className="hidden sm:block" /> {HERO.title[1]}
         </motion.h1>
@@ -67,15 +81,59 @@ function Hero() {
   )
 }
 
+function Launch() {
+  const ref = useRef<HTMLElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], ['-5%', '5%'])
+  return (
+    <section ref={ref} className="pt-10 pb-2 sm:pt-14">
+      <Container wide>
+        <Reveal>
+          <Link
+            to="/gta-6"
+            className="group relative block overflow-hidden rounded-[var(--radius-xl)] bg-ink text-white shadow-[var(--shadow-raise)] focus-visible:outline-[2.5px] focus-visible:outline-offset-4 focus-visible:outline-ink"
+          >
+            <motion.div aria-hidden style={{ y }} className="absolute inset-x-0 -inset-y-[8%]">
+              <img
+                src={IMAGES.gtaTrailer2.src}
+                alt=""
+                width={1568}
+                height={672}
+                loading="lazy"
+                className="size-full object-cover opacity-60 transition-transform duration-[var(--duration-slow)] ease-[var(--ease-out-soft)] group-hover:scale-[1.03]"
+              />
+            </motion.div>
+            <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-ink via-ink/85 to-ink/10" />
+            <div className="relative flex flex-col gap-4 p-7 sm:p-10 lg:max-w-[62%] lg:p-12">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex h-11 items-center rounded-[14px] border border-white/20 bg-white/10 px-3 text-[1rem] font-black tracking-[-0.04em]">GTA VI</span>
+                <Tag tone="peach">{GTA.badge}</Tag>
+                <span className="text-[0.8rem] font-medium tracking-[0.06em] text-white/65 uppercase">GTA VI · {GTA.launched}</span>
+              </div>
+              <h2 className="text-[1.8rem] leading-[1.08] font-semibold tracking-[-0.035em] text-balance sm:text-[2.4rem]">GTA VI is out. Clip the launch.</h2>
+              <p className="max-w-[520px] text-[0.975rem] leading-relaxed text-white/75">
+                Paste a Leonida VOD and the detector cuts the first reaction, the cop chase and the heist fail — vertical, captioned and scored.
+              </p>
+              <span className="inline-flex items-center gap-2 self-start rounded-full bg-white px-5 py-2.5 text-[0.9rem] font-semibold text-ink transition-transform duration-[var(--duration-base)] ease-[var(--ease-spring)] group-hover:translate-x-1">
+                Open the GTA VI hub <ArrowRight aria-hidden className="size-4" />
+              </span>
+            </div>
+          </Link>
+        </Reveal>
+      </Container>
+    </section>
+  )
+}
+
 function Trusted() {
   return (
     <section aria-labelledby="trusted" className="py-16 sm:py-[72px]">
       <h2 id="trusted" className="text-center text-[1.125rem] font-medium text-ink-2">
         {HOME.trusted}
       </h2>
-      <Marquee slow className="mx-auto mt-10 max-w-[1324px] [--gap:56px]">
-        {CLIENTS.map((c) => (
-          <ClientLogo key={c} name={c} />
+      <Marquee slow className="mx-auto mt-8 max-w-[1324px] [--gap:14px]" label="Channels Clipfarm clips for">
+        {CREATORS.map((creator) => (
+          <CreatorChip key={creator.name} creator={creator} />
         ))}
       </Marquee>
     </section>
@@ -117,8 +175,8 @@ function Plan() {
         <Reveal className="relative">
           <img src={IMAGES.workshop.src} alt={IMAGES.workshop.alt} loading="lazy" width={1400} height={933} className="aspect-[4/3.4] w-full rounded-[var(--radius-xl)] object-cover shadow-[var(--shadow-card)]" />
           <div className="absolute right-4 bottom-4 left-4 flex items-center gap-3 rounded-[var(--radius-md)] bg-paper/95 p-4 shadow-[var(--shadow-card)] backdrop-blur sm:right-auto sm:max-w-xs">
-            <span className="text-[2rem] leading-none font-semibold tracking-[-0.05em]">90</span>
-            <span className="text-[0.9rem] leading-snug text-body">days from first call to systems your team runs</span>
+            <span className="text-[2rem] leading-none font-semibold tracking-[-0.05em]">20</span>
+            <span className="text-[0.9rem] leading-snug text-body">vertical clips out of every VOD, captioned and tracked</span>
           </div>
         </Reveal>
         <div className="flex flex-col gap-10">
@@ -139,7 +197,7 @@ function Plan() {
               </Reveal>
             ))}
           </ol>
-          <Link to="/90-day-plan" className="inline-flex min-h-10 items-center gap-2 self-start font-semibold underline decoration-accent decoration-2 underline-offset-6 hover:decoration-ink">
+          <Link to="/pipeline" className="inline-flex min-h-10 items-center gap-2 self-start font-semibold underline decoration-accent decoration-2 underline-offset-6 hover:decoration-ink">
             {HOME.plan.link} <ArrowRight aria-hidden className="size-4" />
           </Link>
         </div>
@@ -164,6 +222,35 @@ function Stats() {
   )
 }
 
+function Stack() {
+  return (
+    <section className="py-20 sm:py-24">
+      <Container>
+        <Reveal>
+          <SectionHeading
+            eyebrow={HOME.stack.eyebrow}
+            title={HOME.stack.title}
+            text={HOME.stack.text}
+            action={
+              <ButtonLink to="/toolkit" variant="secondary">
+                {HOME.stack.link} <ArrowRight aria-hidden className="size-4" />
+              </ButtonLink>
+            }
+          />
+        </Reveal>
+      </Container>
+      <Marquee slow className="mx-auto mt-12 max-w-[1324px] [--gap:10px]" label="Tools in the pipeline">
+        {TOOLS.map((t) => (
+          <span key={t.n} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-line-strong bg-paper/70 px-4 text-[0.9rem] font-medium text-ink-2">
+            <span className="text-[0.75rem] font-semibold text-muted tabular-nums">{t.n}</span>
+            {t.name}
+          </span>
+        ))}
+      </Marquee>
+    </section>
+  )
+}
+
 function Cases() {
   return (
     <section className="py-20 sm:py-24">
@@ -172,6 +259,7 @@ function Cases() {
           <SectionHeading
             eyebrow={HOME.cases.eyebrow}
             title={HOME.cases.title}
+            text={HOME.cases.text}
             action={
               <ButtonLink to="/case-studies" variant="secondary">
                 {HOME.cases.link} <ArrowRight aria-hidden className="size-4" />
@@ -179,13 +267,29 @@ function Cases() {
             }
           />
         </Reveal>
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          {CASES.slice(0, 3).map((c, i) => (
-            <Reveal key={c.slug} delay={i * 0.06}>
-              <CaseCard study={c} className="h-full" />
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {CREATORS.slice(0, 8).map((creator, i) => (
+            <Reveal key={creator.name} delay={(i % 3) * 0.06}>
+              <CreatorCard creator={creator} className="h-full" />
             </Reveal>
           ))}
+          <Reveal delay={0.12}>
+            <Link
+              to="/signup"
+              className="group flex h-full min-h-[232px] flex-col items-start justify-center gap-3 rounded-[var(--radius-lg)] border border-dashed border-line-strong bg-white/40 p-6 transition-[transform,border-color,background-color,box-shadow] duration-[var(--duration-base)] ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-ink hover:bg-white/80 hover:shadow-[var(--shadow-card)]"
+            >
+              <span aria-hidden className="grid size-11 place-items-center rounded-full bg-peach text-accent-ink">
+                <Plus className="size-5" />
+              </span>
+              <p className="text-[1.05rem] font-semibold tracking-[-0.02em]">Your channel next</p>
+              <p className="text-[0.88rem] leading-relaxed text-body">Send one VOD and get ten clips back in 48 hours. The first pass is free.</p>
+              <span className="mt-1 inline-flex items-center gap-1.5 text-[0.82rem] font-semibold text-accent-ink">
+                Start free <ArrowRight aria-hidden className="size-3.5" />
+              </span>
+            </Link>
+          </Reveal>
         </div>
+        <p className="mt-6 max-w-3xl text-[0.78rem] leading-relaxed text-muted">{CREATORS_NOTE}</p>
         <Reveal>
           <div className="mt-16 rounded-[var(--radius-xl)] bg-peach/70 p-8 sm:p-14">
             <QuoteBlock {...HOME.quote} avatar={IMAGES.avatars[0]} className="max-w-4xl" />
@@ -213,11 +317,15 @@ export function Home() {
   usePageTitle()
   return (
     <>
+      <ReadingProgress />
       <Hero />
+      <Launch />
+      <GtaClipRail />
       <Trusted />
       <Services />
       <Plan />
       <Stats />
+      <Stack />
       <Cases />
       <Faq />
       <CtaBand title={HOME.cta.title} text={HOME.cta.text} button={HOME.cta.button} />

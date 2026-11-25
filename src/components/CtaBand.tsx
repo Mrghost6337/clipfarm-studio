@@ -3,7 +3,7 @@ import { Container } from './Container'
 import { SocialProof } from './Proof'
 import { Reveal } from './Reveal'
 
-export function CtaBand({ title, text, button, proof = 'Loved by founders globally' }: { title: string; text: string; button: string; proof?: string }) {
+export function CtaBand({ title, text, button, proof = 'Trusted by 400+ creators' }: { title: string; text: string; button: string; proof?: string }) {
   return (
     <section className="py-20 sm:py-24">
       <Container>
@@ -13,7 +13,7 @@ export function CtaBand({ title, text, button, proof = 'Loved by founders global
             <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-6">
               <h2 className="text-[2.1rem] leading-[1.05] font-semibold tracking-[-0.04em] text-balance sm:text-[3rem]">{title}</h2>
               <p className="max-w-xl text-[1.0625rem] leading-relaxed text-body">{text}</p>
-              <ArrowLink to="/audit" size="lg">
+              <ArrowLink to="/signup" size="lg">
                 {button}
               </ArrowLink>
               <SocialProof label={proof} />

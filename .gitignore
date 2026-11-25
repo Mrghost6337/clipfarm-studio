@@ -6,3 +6,16 @@ dist
 !.dev.vars.example
 .DS_Store
 *.log
+/freebuff-sites-build/
+
+# Local pipeline (rebuildable / private)
+.venv/
+.tools/
+.env
+secrets/
+models/
+pipeline/data/
+
+# Python bytecode
+__pycache__/
+*.pyc

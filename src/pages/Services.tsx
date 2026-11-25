@@ -12,17 +12,19 @@ import { Reveal } from '../components/Reveal'
 import { Segmented } from '../components/Segmented'
 import { SectionHeading } from '../components/SectionHeading'
 import { ServiceIcon } from '../components/ServiceIcon'
-import { ENGAGEMENTS, HOME, SERVICES, SERVICES_PAGE } from '../content'
+import { ENGAGEMENTS, HOME, SERVICES, SERVICES_PAGE, SITE } from '../content'
 import { cx } from '../lib/cx'
-import { formatMoney } from '../lib/format'
+import { priceFor } from '../shared/account'
+import { useRegion } from '../lib/region'
 import { readJson, writeJson } from '../lib/storage'
 import { usePageTitle } from '../lib/title'
 
 type Billing = 'monthly' | 'quarterly'
-const BILLING_KEY = 'pfp.billing'
+const BILLING_KEY = `${SITE.storagePrefix}.billing`
 
 export function Services() {
   usePageTitle('Services')
+  const { format } = useRegion()
   const [billing, setBilling] = useState<Billing>(() => readJson<Billing>(BILLING_KEY, 'monthly'))
   const choose = (b: Billing) => {
     setBilling(b)
@@ -86,13 +88,13 @@ export function Services() {
               onChange={choose}
               options={[
                 { value: 'monthly', label: 'Monthly' },
-                { value: 'quarterly', label: 'Quarterly, save 10%' },
+                { value: 'quarterly', label: 'Quarterly, save 20%' },
               ]}
             />
           </div>
           <div className="mt-10 grid gap-5 lg:grid-cols-3">
             {ENGAGEMENTS.plans.map((p) => {
-              const price = billing === 'monthly' ? p.monthly : Math.round(p.monthly * 0.9)
+              const price = priceFor(p, billing)
               return (
                 <Card key={p.id} tone={p.featured ? 'ink' : 'paper'} className="flex flex-col gap-6">
                   <div className="flex items-center justify-between">
@@ -101,10 +103,13 @@ export function Services() {
                   </div>
                   <div>
                     <p className="flex items-baseline gap-1.5">
-                      <span className="text-[2.75rem] leading-none font-semibold tracking-[-0.045em] tabular-nums">{formatMoney(price)}</span>
+                      <span className="text-[2.75rem] leading-none font-semibold tracking-[-0.045em] tabular-nums">{format(price)}</span>
                       <span className={cx('text-[0.95rem]', p.featured ? 'text-white/75' : 'text-muted')}>/ month</span>
                     </p>
                     <p className={cx('mt-2 text-[0.95rem] font-semibold', p.featured ? 'text-accent' : 'text-accent-ink')}>{p.days}</p>
+                    <p className={cx('mt-1 text-[0.8rem]', p.featured ? 'text-white/60' : 'text-muted')}>
+                      {billing === 'quarterly' ? `${format(price * 3)} billed every 3 months` : 'Billed monthly'} · ≈ {format(price / p.limit)} per clip
+                    </p>
                   </div>
                   <p className={cx('text-[0.975rem] leading-relaxed', p.featured ? 'text-white/80' : 'text-body')}>{p.text}</p>
                   <ul className="flex flex-col gap-2.5">
@@ -117,12 +122,12 @@ export function Services() {
                   </ul>
                   <div className="mt-auto pt-2">
                     {p.featured ? (
-                      <ArrowLink to={`/audit?plan=${p.id}`} tone="light" className="w-full justify-between">
-                        Start with a free audit
+                      <ArrowLink to={`/signup?plan=${p.id}`} tone="light" className="w-full justify-between">
+                        Start free
                       </ArrowLink>
                     ) : (
-                      <ButtonLink to={`/audit?plan=${p.id}`} variant="secondary" className="w-full">
-                        Start with a free audit
+                      <ButtonLink to={`/signup?plan=${p.id}`} variant="secondary" className="w-full">
+                        Start free
                       </ButtonLink>
                     )}
                   </div>
@@ -139,20 +144,20 @@ export function Services() {
           <SectionHeading eyebrow="Compare" title={SERVICES_PAGE.compareTitle} />
           <div role="region" aria-label="Comparison table" tabIndex={0} className="mt-10 overflow-x-auto rounded-[var(--radius-lg)] bg-paper shadow-[var(--shadow-card)]">
             <table className="w-full min-w-[640px] text-left text-[0.95rem]">
-              <caption className="sr-only">Fractional Head of People compared with an HR agency and a full-time hire</caption>
+              <caption className="sr-only">Clipfarm compared with an editing agency and doing it yourself</caption>
               <thead>
                 <tr className="border-b border-line">
                   <th scope="col" className="p-5 font-semibold text-muted">
                     <span className="sr-only">Criterion</span>
                   </th>
                   <th scope="col" className="bg-peach/60 p-5 font-semibold">
-                    Peoplefirst
+                    Clipfarm
                   </th>
                   <th scope="col" className="p-5 font-semibold">
-                    HR agency
+                    Editing agency
                   </th>
                   <th scope="col" className="p-5 font-semibold">
-                    Full-time hire
+                    You, at 2am
                   </th>
                 </tr>
               </thead>
@@ -165,7 +170,7 @@ export function Services() {
                     <td className="bg-peach/60 p-5 font-medium">
                       <span className="inline-flex items-center gap-2">
                         <Check aria-hidden className="size-4 text-accent-ink" strokeWidth={3} />
-                        {row.fractional}
+                        {row.us}
                       </span>
                     </td>
                     <td className="p-5 text-body">
@@ -174,7 +179,7 @@ export function Services() {
                         {row.agency}
                       </span>
                     </td>
-                    <td className="p-5 text-body">{row.hire}</td>
+                    <td className="p-5 text-body">{row.diy}</td>
                   </tr>
                 ))}
               </tbody>

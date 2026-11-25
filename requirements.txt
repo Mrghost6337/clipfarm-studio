@@ -1,0 +1,11 @@
+# Local pipeline (all free, no API keys)
+faster-whisper>=1.1.0
+yt-dlp>=2025.1.1
+opencv-python-headless>=4.10.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.9
+
+# Optional: official YouTube Shorts upload
+google-api-python-client>=2.150.0
+google-auth-oauthlib>=1.2.1

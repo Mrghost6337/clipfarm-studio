@@ -14,7 +14,7 @@ export function NotFound() {
         <h1 className="text-[2.2rem] leading-tight font-semibold tracking-[-0.035em] sm:text-[3rem]">{NOT_FOUND.title}</h1>
         <p className="max-w-md text-[1.0625rem] text-body">{NOT_FOUND.text}</p>
         <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <ArrowLink to="/audit">{NOT_FOUND.audit}</ArrowLink>
+          <ArrowLink to="/signup">{NOT_FOUND.cta}</ArrowLink>
           <ButtonLink to="/" variant="secondary">
             {NOT_FOUND.home}
           </ButtonLink>

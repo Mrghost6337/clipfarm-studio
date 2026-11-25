@@ -4,7 +4,7 @@ import { Link, type LinkProps } from 'react-router'
 
 import { cx } from '../lib/cx'
 
-export type Variant = 'primary' | 'secondary' | 'ghost' | 'light'
+export type Variant = 'primary' | 'secondary' | 'ghost' | 'light' | 'destructive' | 'danger-ghost'
 export type Size = 'sm' | 'md' | 'lg'
 export type Force = 'hover' | 'focus' | 'pressed'
 
@@ -17,6 +17,8 @@ export const variants: Record<Variant, string> = {
   secondary: 'border border-line-strong bg-paper text-ink hover:border-ink data-[force=hover]:border-ink data-[force=pressed]:bg-sand',
   ghost: 'text-ink hover:bg-ink/5 data-[force=hover]:bg-ink/5 data-[force=pressed]:bg-ink/10',
   light: 'bg-paper text-ink shadow-[var(--shadow-card)] hover:bg-sand data-[force=hover]:bg-sand data-[force=pressed]:bg-sand',
+  destructive: 'bg-danger text-white hover:bg-[#961c27] data-[force=hover]:bg-[#961c27] data-[force=pressed]:bg-[#961c27]',
+  'danger-ghost': 'text-danger hover:bg-danger-soft data-[force=hover]:bg-danger-soft data-[force=pressed]:bg-danger-soft-strong',
 }
 
 export const sizes: Record<Size, string> = {

@@ -13,20 +13,20 @@ import { controlBase } from '../components/Field'
 import { PageHero } from '../components/PageHero'
 import { Chip, Tag } from '../components/Pill'
 import { Reveal } from '../components/Reveal'
-import { CASES, CASES_PAGE, HOME, IMAGES } from '../content'
+import { CASES, CASES_PAGE, HOME, IMAGES, type CaseStudy } from '../content'
 import { cx } from '../lib/cx'
 import { usePageTitle } from '../lib/title'
 import { NotFound } from './NotFound'
 
 const TOPICS = Array.from(new Set(CASES.flatMap((c) => c.topics))).sort()
-const STAGES = ['Seed', 'Series A', 'Series B'] as const
+const PLATFORMS: Array<CaseStudy['platform']> = ['Twitch', 'YouTube', 'TikTok', 'Multi-platform']
 
 export function CaseStudies() {
   usePageTitle('Case studies')
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
   const topic = params.get('topic') ?? ''
-  const stage = params.get('stage') ?? ''
+  const platform = params.get('platform') ?? ''
   const set = (key: string, value: string) => {
     const next = new URLSearchParams(params)
     if (value) next.set(key, value)
@@ -35,8 +35,8 @@ export function CaseStudies() {
   }
   const results = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    return CASES.filter((c) => (!topic || c.topics.includes(topic)) && (!stage || c.stage === stage) && (!needle || [c.client, c.title, c.summary, c.sector, ...c.topics].join(' ').toLowerCase().includes(needle)))
-  }, [q, topic, stage])
+    return CASES.filter((c) => (!topic || c.topics.includes(topic)) && (!platform || c.platform === platform) && (!needle || [c.client, c.title, c.summary, c.niche, ...c.topics].join(' ').toLowerCase().includes(needle)))
+  }, [q, topic, platform])
 
   return (
     <>
@@ -52,7 +52,7 @@ export function CaseStudies() {
               <input id="case-search" type="search" value={q} onChange={(e) => set('q', e.target.value)} placeholder={CASES_PAGE.searchPlaceholder} className={cx(controlBase, 'h-12 border-line-strong pl-12')} />
             </div>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div role="group" aria-label="Filter by topic" className="flex flex-wrap gap-2">
+              <div role="group" aria-label="Filter by topic" className="flex shrink-0 flex-wrap gap-2">
                 <Chip selected={!topic} onClick={() => set('topic', '')}>
                   {CASES_PAGE.all}
                 </Chip>
@@ -62,10 +62,10 @@ export function CaseStudies() {
                   </Chip>
                 ))}
               </div>
-              <div role="group" aria-label="Filter by stage" className="flex flex-wrap gap-2">
-                {STAGES.map((s) => (
-                  <Chip key={s} selected={stage === s} onClick={() => set('stage', stage === s ? '' : s)}>
-                    {s}
+              <div role="group" aria-label="Filter by platform" className="flex shrink-0 flex-wrap gap-2">
+                {PLATFORMS.map((p) => (
+                  <Chip key={p} selected={platform === p} onClick={() => set('platform', platform === p ? '' : p)}>
+                    {p}
                   </Chip>
                 ))}
               </div>
@@ -114,9 +114,9 @@ export function CaseStudyPage() {
               <ClientLogo name={study.client} />
               <h1 className="text-[2.4rem] leading-[1.05] font-semibold tracking-[-0.04em] text-balance sm:text-[3.4rem]">{study.title}</h1>
               <div className="flex flex-wrap gap-2">
-                <Tag tone="ink">{study.stage}</Tag>
-                <Tag>{study.sector}</Tag>
-                <Tag>{study.headcount} people</Tag>
+                <Tag tone="ink">{study.platform}</Tag>
+                <Tag>{study.niche}</Tag>
+                <Tag>{study.audience}</Tag>
                 {study.topics.map((t) => (
                   <Tag key={t} tone="peach">
                     {t}

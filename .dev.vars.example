@@ -1,0 +1,12 @@
+# Copy to `.dev.vars` (git-ignored) for local OAuth testing.
+#
+# 1. In Google Cloud Console create an OAuth client of type "Web application".
+# 2. Add this authorised redirect URI exactly:
+#      http://localhost:3000/api/auth/google/callback
+#    and, once deployed, https://<your-domain>/api/auth/google/callback
+# 3. Paste the client id and secret below.
+#
+# Email and password accounts work without these values. In production, set the
+# same names as Worker secrets instead of committing them to a file.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=

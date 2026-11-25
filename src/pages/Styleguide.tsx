@@ -93,7 +93,7 @@ export function Styleguide() {
   const [modal, setModal] = useState(false)
   const [drawer, setDrawer] = useState(false)
   const [seg, setSeg] = useState<'a' | 'b' | 'c'>('a')
-  const [chips, setChips] = useState<string[]>(['Hiring'])
+  const [chips, setChips] = useState<string[]>(['Highlights'])
   return (
     <Container className="pt-12 pb-20">
       <Eyebrow>Design system</Eyebrow>
@@ -128,7 +128,7 @@ export function Styleguide() {
               <Label>
                 {name} <span className="tabular-nums">{spec}</span>
               </Label>
-              <p className={`${cls} break-words`}>Head of People</p>
+              <p className={`${cls} break-words`}>Clip farming</p>
             </div>
           ))}
         </div>
@@ -266,9 +266,9 @@ export function Styleguide() {
           <Button size="sm">Small</Button>
           <Button size="md">Medium</Button>
           <Button size="lg">Large</Button>
-          <ArrowLink to="/audit">Book a call</ArrowLink>
-          <ArrowLink to="/audit" size="lg">
-            Book Free HR Audit
+          <ArrowLink to="/signup">Start free</ArrowLink>
+          <ArrowLink to="/signup" size="lg">
+            Get 10 free clips
           </ArrowLink>
         </div>
       </Section>
@@ -303,7 +303,7 @@ export function Styleguide() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <Label>Live</Label>
-            {['Hiring', 'Compensation', 'Culture'].map((c) => (
+            {['Highlights', 'Captions', 'Audio'].map((c) => (
               <Chip key={c} selected={chips.includes(c)} onClick={() => setChips((x) => (x.includes(c) ? x.filter((y) => y !== c) : [...x, c]))}>
                 {c}
               </Chip>
@@ -327,8 +327,8 @@ export function Styleguide() {
           <TextField label="Error" defaultValue="maya@" error="Enter a valid work email." />
           <TextField label="Disabled" defaultValue="Disabled" disabled />
           <TextField label="With hint" optional hint="We only use this to send the invite." />
-          <SelectField label="Select" options={['Seed', 'Series A', 'Series B']} placeholder="Choose" />
-          <SelectField label="Select error" options={['Seed']} placeholder="Choose" error="Choose your stage." />
+          <SelectField label="Select" options={['Twitch', 'YouTube', 'TikTok']} placeholder="Choose" />
+          <SelectField label="Select error" options={['Twitch']} placeholder="Choose" error="Choose your platform." />
           <TextArea label="Text area" placeholder="Anything we should know?" className="sm:col-span-2 lg:col-span-3" />
         </div>
       </Section>
@@ -353,8 +353,8 @@ export function Styleguide() {
                 { value: 'c', label: 'Yearly' },
               ]}
             />
-            <Stepper steps={['Your company', 'Focus areas', 'Pick a time']} current={1} />
-            <Stepper steps={['Your company', 'Focus areas', 'Pick a time']} current={2} />
+            <Stepper steps={['Your channel', 'What to clip', 'Pick a time']} current={1} />
+            <Stepper steps={['Your channel', 'What to clip', 'Pick a time']} current={2} />
             <div className="flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setModal(true)}>
                 Open modal
@@ -412,10 +412,10 @@ export function Styleguide() {
           <CaseCard study={CASES[0]} />
           <div className="flex flex-col gap-5">
             <Card>
-              <Stat value="38%" label="faster time to hire" />
+              <Stat value="24 h" label="from VOD to clips" />
             </Card>
             <Card tone="ink">
-              <Stat value="4.9/5" label="average founder rating" tone="white" />
+              <Stat value="214M" label="views earned by clips" tone="white" />
             </Card>
             <Card tone="sand">
               <CheckList items={['Sand card', 'With a check list']} size="sm" />
@@ -423,7 +423,7 @@ export function Styleguide() {
           </div>
         </div>
         <Card tone="peach" className="mt-5">
-          <QuoteBlock text="Our managers stopped guessing." name="Sam Okafor" role="CTO, Brightwater" avatar={IMAGES.avatars[2]} />
+          <QuoteBlock text="I have not opened an editor in three months." name="Nova Reyes" role="Streamer, NovaPlays" avatar={IMAGES.avatars[2]} />
         </Card>
       </Section>
 
@@ -441,7 +441,7 @@ export function Styleguide() {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-8">
-            <SocialProof label="Loved by founders globally" />
+            <SocialProof label="Trusted by 400+ creators" />
             <Stars rating={4} />
           </div>
           <div className="grid gap-6 md:grid-cols-3">

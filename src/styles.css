@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
-  Design tokens for Peoplefirst Partners. A warm off-white page with a faint
+  Design tokens for Clipfarm Studio. A warm off-white page with a faint
   column grid, near-black ink with a brown cast, and a peach-to-apricot glow
   that rises from the bottom of the hero. Everything rounded is a squircle
   (see the base layer), so radii run a step larger than a plain radius.
@@ -26,7 +26,10 @@
   --color-accent: #f0a24b;
   --color-accent-ink: #94510b;
   --color-success: #1f7a4a;
+  --color-success-soft: #e5f3ea;
   --color-danger: #b4232f;
+  --color-danger-soft: #fbe9ea;
+  --color-danger-soft-strong: #f5d7d9;
   --color-star: #f5b324;
 
   --radius-sm: 12px;

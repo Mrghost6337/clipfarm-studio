@@ -77,7 +77,7 @@ export function About() {
 
       <section className="py-20">
         <Container>
-          <SectionHeading eyebrow="Network" title={ABOUT.teamTitle} />
+          <SectionHeading eyebrow="Roster" title={ABOUT.teamTitle} />
           <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {ABOUT.team.map((p) => (
               <li key={p.name}>
