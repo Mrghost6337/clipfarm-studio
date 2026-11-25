@@ -1,0 +1,168 @@
+name: Desktop app
+
+# Builds the Windows installer on a real Windows machine, installs it, and runs
+# the app's own smoke test, the end-to-end test against the installed app and a
+# real clip render with the bundled runtime. Runs on pull requests and on demand.
+# It never publishes a release: the installer is uploaded as a workflow artifact.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Website and pipeline checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run build
+      - name: Pipeline tests
+        run: |
+          python -m pip install --disable-pip-version-check -r desktop/requirements-desktop.txt httpx
+          python -m unittest discover -s pipeline/tests -t . -v
+      - name: Desktop unit tests and typecheck
+        working-directory: desktop
+        run: |
+          bun install --frozen-lockfile
+          bun run typecheck
+          bun test src
+
+  windows:
+    name: Windows installer
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        id: python
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          bun install --frozen-lockfile
+          cd desktop
+          bun install --frozen-lockfile
+
+      - name: Build the pipeline runtime (Python, ffmpeg, Deno, models, fonts)
+        working-directory: desktop
+        shell: pwsh
+        run: node scripts/build-sidecar.mjs --python-home "$env:pythonLocation"
+
+      - name: Build the app
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          bun run typecheck
+          bun run build
+
+      - name: Package the installer
+        working-directory: desktop
+        shell: pwsh
+        env:
+          # Unsigned until a certificate is provided (see desktop/README.md).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: bunx electron-builder --win --publish never
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipfarm-studio-windows-installer
+          path: desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Install silently
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem desktop/release/*.exe | Select-Object -First 1
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exited with $($process.ExitCode)" }
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Clipfarm Studio.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Installed app not found under %LOCALAPPDATA%\Programs' }
+          "CLIPFARM_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "Installed: $($exe.FullName)"
+          $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Clipfarm Studio.lnk'
+          $desktopShortcut = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Clipfarm Studio.lnk'
+          Write-Host "Start menu shortcut: $(Test-Path $shortcut)  Desktop shortcut: $(Test-Path $desktopShortcut)"
+          if (-not (Test-Path $shortcut)) { throw 'Start menu shortcut missing' }
+
+      - name: Smoke test the installed app
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP 'smoke.txt'
+          $env:CLIPFARM_DATA_DIR = Join-Path $env:RUNNER_TEMP 'clipfarm-smoke'
+          $process = Start-Process -FilePath $env:CLIPFARM_EXE -ArgumentList '--smoke-test', "--smoke-report=$report" -Wait -PassThru
+          Get-Content $report
+          if ($process.ExitCode -ne 0) { throw "Smoke test failed ($($process.ExitCode))" }
+
+      - name: End-to-end test of the installed app
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          node tests/phase1.e2e.cjs "$env:RUNNER_TEMP\screens"
+
+      - name: Render a real clip with the bundled runtime
+        shell: pwsh
+        run: |
+          $app = Split-Path $env:CLIPFARM_EXE
+          $sidecar = Join-Path $app 'resources\sidecar'
+          $env:PIPELINE_DATA = Join-Path $env:RUNNER_TEMP 'clipfarm-render'
+          $env:PIPELINE_MODELS = Join-Path $env:RUNNER_TEMP 'clipfarm-models'
+          $env:FFMPEG_PATH = Join-Path $sidecar 'bin\ffmpeg.exe'
+          $env:FFPROBE_PATH = Join-Path $sidecar 'bin\ffprobe.exe'
+          $env:PIPELINE_FONTS = Join-Path $sidecar 'fonts'
+          $env:WHISPER_MODEL = 'tiny'
+          New-Item -ItemType Directory -Force $env:PIPELINE_MODELS | Out-Null
+          Copy-Item (Join-Path $sidecar 'models\face_detection_yunet_2023mar.onnx') $env:PIPELINE_MODELS
+          Push-Location (Join-Path $sidecar 'app')
+          & (Join-Path $sidecar 'python\python.exe') -m pipeline.cli selftest
+          if ($LASTEXITCODE -ne 0) { throw 'Clip render failed' }
+          Pop-Location
+          $clip = Get-ChildItem $env:PIPELINE_DATA -Recurse -Filter clip.mp4 | Select-Object -First 1
+          & $env:FFPROBE_PATH -v error -select_streams v:0 -show_entries stream=width,height,codec_name -of csv=p=0 $clip.FullName
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\screens" | Out-Null
+          Copy-Item $clip.FullName "$env:RUNNER_TEMP\screens\windows-rendered-clip.mp4"
+
+      - name: Uninstall
+        if: always()
+        shell: pwsh
+        run: |
+          $uninstaller = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Uninstall Clipfarm Studio.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($uninstaller) {
+            $process = Start-Process -FilePath $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru
+            Start-Sleep -Seconds 5
+            $left = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Clipfarm Studio.exe' -ErrorAction SilentlyContinue
+            Write-Host "Uninstall exit $($process.ExitCode); app files left: $([bool]$left)"
+            if ($left) { throw 'Uninstall left the app behind' }
+          }
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-evidence
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+          retention-days: 30

@@ -318,13 +318,25 @@ def probe(path: str) -> dict[str, Any]:
 
 
 def update_ytdlp() -> dict[str, Any]:
+    from .config import MANAGED
+
+    if MANAGED:
+        # The desktop app ships a verified runtime; changing it in place would
+        # break that check. yt-dlp updates arrive with app updates.
+        return {"ok": False, "output": "yt-dlp is updated together with the Clipfarm app. Check for app updates in Settings."}
     result = subprocess.run([sys.executable, "-m", "pip", "install", "-U", "yt-dlp"], capture_output=True, text=True, timeout=300)
     return {"ok": result.returncode == 0, "output": (result.stdout + result.stderr)[-2000:]}
 
 
 def ytdlp_version() -> str | None:
+    """Version of the yt-dlp package this Python runs (the same one used for downloads)."""
     try:
-        result = subprocess.run([YTDLP, "--version"], capture_output=True, text=True, timeout=20)
-        return result.stdout.strip() if result.returncode == 0 else None
+        from yt_dlp.version import __version__  # type: ignore
+
+        return str(__version__)
     except Exception:
-        return None
+        try:
+            result = subprocess.run([YTDLP, "--version"], capture_output=True, text=True, timeout=20)
+            return result.stdout.strip() if result.returncode == 0 else None
+        except Exception:
+            return None

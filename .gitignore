@@ -19,3 +19,9 @@ pipeline/data/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# Desktop app build output
+desktop/node_modules/
+desktop/dist/
+desktop/build/
+desktop/release/

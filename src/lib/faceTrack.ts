@@ -6,9 +6,15 @@
 // If the model cannot load, or no face is found, the caller gets the centre of
 // the frame so rendering always continues.
 
+// The desktop app bundles the same files (desktop/scripts/vendor.mjs) and never
+// reaches a CDN.
+const DESKTOP = import.meta.env.VITE_DESKTOP === '1'
 const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3'
-const MODEL =
-  'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'
+const MODULE_URL = DESKTOP ? '/vendor/mediapipe/vision_bundle.mjs' : `${CDN}/+esm`
+const WASM_URL = DESKTOP ? '/vendor/mediapipe/wasm' : `${CDN}/wasm`
+const MODEL = DESKTOP
+  ? '/vendor/mediapipe/blaze_face_short_range.tflite'
+  : 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite'
 
 type Box = { originX: number; originY: number; width: number; height: number }
 type Detection = { boundingBox?: Box; categories?: Array<{ score?: number }> }
@@ -37,8 +43,8 @@ let detectorPromise: Promise<Detector> | null = null
 function loadDetector() {
   if (!detectorPromise) {
     detectorPromise = (async () => {
-      const vision = (await import(/* @vite-ignore */ `${CDN}/+esm`)) as VisionModule
-      const fileset = await vision.FilesetResolver.forVisionTasks(`${CDN}/wasm`)
+      const vision = (await import(/* @vite-ignore */ MODULE_URL)) as VisionModule
+      const fileset = await vision.FilesetResolver.forVisionTasks(WASM_URL)
       return vision.FaceDetector.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: MODEL },
         runningMode: 'IMAGE',

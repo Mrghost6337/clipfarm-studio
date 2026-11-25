@@ -9,7 +9,7 @@ import wave
 from pathlib import Path
 from typing import Any, Callable
 
-from .config import FFMPEG, MODELS_DIR, WHISPER_COMPUTE, WHISPER_DEVICE, WHISPER_MODEL
+from .config import FFMPEG, MANAGED, MODELS_DIR, WHISPER_COMPUTE, WHISPER_DEVICE, WHISPER_MODEL
 from .subtitles import Word
 
 Progress = Callable[[str, float], None]
@@ -17,6 +17,21 @@ Progress = Callable[[str, float], None]
 
 class TranscribeError(RuntimeError):
     pass
+
+
+def installed_model_dir(name: str) -> Path | None:
+    """A model installed by the desktop model manager: MODELS_DIR/whisper/<name>/model.bin."""
+    folder = MODELS_DIR / "whisper" / name
+    return folder if (folder / "model.bin").exists() and (folder / "config.json").exists() else None
+
+
+def resolve_model(name: str) -> str:
+    folder = installed_model_dir(name)
+    if folder:
+        return str(folder)
+    if MANAGED:
+        raise TranscribeError(f"The Whisper model `{name}` is not installed. Download it in Settings → Models.")
+    return name  # faster-whisper downloads it on first use
 
 
 def extract_audio(video_path: str, wav_path: str) -> str:
@@ -94,7 +109,7 @@ def transcribe(
         raise TranscribeError(f"faster-whisper is not available ({error}). Run `python -m pipeline.cli setup`.") from error
 
     try:
-        model = WhisperModel(model_name, device=device, compute_type=compute, download_root=str(MODELS_DIR / "whisper"))
+        model = WhisperModel(resolve_model(model_name), device=device, compute_type=compute, download_root=str(MODELS_DIR / "whisper"))
     except Exception as error:
         raise TranscribeError(f"Could not load Whisper model `{model_name}`: {error}") from error
 

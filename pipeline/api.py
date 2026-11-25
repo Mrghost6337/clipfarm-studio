@@ -7,6 +7,7 @@ this API; nothing here needs a paid service or an API key.
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -133,7 +134,8 @@ class PairDecision(BaseModel):
 @app.get("/health")
 def health() -> dict[str, Any]:
     # Public: the browser Studio uses it to find the service on 127.0.0.1.
-    return {"ok": True, "service": "clipfarm-pipeline", "version": VERSION, "instanceId": security.state().instance_id, "time": time.time()}
+    host = "desktop" if os.environ.get("PIPELINE_HOST_APP") == "desktop" else "cli"
+    return {"ok": True, "service": "clipfarm-pipeline", "version": VERSION, "instanceId": security.state().instance_id, "host": host, "time": time.time()}
 
 
 @app.post("/pair/request")

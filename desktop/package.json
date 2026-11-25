@@ -1,0 +1,33 @@
+{
+  "name": "clipfarm-desktop",
+  "productName": "Clipfarm Studio",
+  "version": "0.1.0",
+  "description": "Clipfarm Studio for Windows",
+  "author": "Clipfarm Studio",
+  "private": true,
+  "main": "dist/main/index.js",
+  "scripts": {
+    "vendor": "node scripts/vendor.mjs",
+    "build:renderer": "cd .. && bunx vite build -c vite.desktop.config.ts",
+    "build:main": "bun build src/main/index.ts --target=node --format=cjs --external electron --outfile dist/main/index.js && bun build src/preload/index.ts --target=node --format=cjs --external electron --outfile dist/preload/index.js",
+    "build": "bun run build:main && bun run build:renderer && bun run vendor",
+    "typecheck": "../node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "test": "bun test src",
+    "start": "electron .",
+    "dist:win": "electron-builder --win --publish never",
+    "dist:dir": "electron-builder --dir --publish never"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter-tight": "5.3.0",
+    "@fontsource/caveat": "5.3.0",
+    "@mediapipe/tasks-vision": "1.2.3",
+    "@types/bun": "1.4.4",
+    "@types/node": "22.20.6",
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0",
+    "electron-updater": "6.8.12"
+  },
+  "trustedDependencies": [
+    "electron"
+  ]
+}
