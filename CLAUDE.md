@@ -32,6 +32,7 @@ in a desktop shell. Read it before changing anything.
 | Styling | Tailwind CSS v4 with a CSS-first `@theme` token block in `src/styles.css` |
 | Site/API | Cloudflare Worker (Hono) in `src/worker/`, D1 database (`DB` binding), static assets |
 | Auth | Email/password (PBKDF2 + HttpOnly session cookie) and optional Google OAuth |
+| Desktop app | Electron 45 in `desktop/` (electron-builder NSIS installer, electron-updater), renderer from `src/desktop/` |
 | Heavy pipeline | **Local Python service** in `pipeline/`: FastAPI + SQLite + yt-dlp + ffmpeg/libass + faster-whisper + OpenCV YuNet |
 | In-browser extras | MediaBunny + WebCodecs cutter, MediaPipe BlazeFace face crop, Whisper via transformers.js |
 
@@ -68,7 +69,10 @@ In dev, Vite proxies `/pipeline-api` → `http://127.0.0.1:8787` (see
 | `src/shared/` | Code shared with the Worker: `account.ts` (plans, onboarding, types), `clips.ts` (detector), `exports.ts`, `agents.ts` |
 | `src/worker/` | Hono routes: `index.ts`, `auth.ts`, `clips.ts` |
 | `pipeline/` | Python pipeline: `api.py`, `worker.py`, `ingest.py`, `transcribe.py`, `detect.py`, `face.py`, `render.py`, `subtitles.py`, `publish.py`, `db.py`, `config.py`, `cli.py` |
-| `public/images/` | Photos and creator avatars (real, credited); `public/images/gta-clips/` holds real GTA VI thumbnails |
+| `public/images/` | Two site photos (`desk.jpg`, `studio-clip.jpg`). No creator avatars or GTA thumbnails are stored; the GTA rail links to the original uploads |
+| `public/wall/` | Desktop welcome-wall covers (openly licensed, rendered by the pipeline) and `manifest.json` with licence or permission per cover |
+| `desktop/` | Windows app: main process (`src/main`), preload, typed IPC (`src/shared/ipc.ts`), sidecar build scripts, e2e tests, `README.md` |
+| `src/desktop/` | Desktop renderer: first-run screens (`onboarding/`), `Shell`, `Home`, `Settings`, `bridge.ts` |
 | `docs/ui/` | Screenshots of the current UI (index at the end) |
 
 Routing (`src/App.tsx`): marketing pages keep the site header/footer; `/dashboard`
@@ -210,15 +214,15 @@ Marketing (site header + footer, `Header`/`Footer`):
 
 | Route | What it shows |
 | --- | --- |
-| `/` | Hero with avatar badge, two-tone headline, dark "Start free" arrow pill, hand-drawn note, creator avatars + stars, outcome-pill marquee, three check statements over `hero-glow`; GTA VI banner with parallax; **GTA VI launch-week clip rail** (six real creator uploads, each card opens the original YouTube video); "Clipping for" creator marquee; services grid; pipeline; stats; toolkit marquee; creator cards; quote; FAQ; closing CTA. Scroll reading-progress bar at the top. |
+| `/` | Hero (two-tone headline, "Start free" arrow pill, hand-drawn note, outcome-pill marquee, three check statements over `hero-glow`); GTA VI launch banner; **GTA VI clip rail** (six real creator uploads, linked to the original YouTube videos, no stored thumbnails); services; plan; stats; tools marquee; FAQ; closing CTA. Scroll reading-progress bar at the top. |
 | `/gta-6` | GTA VI hub: cinematic hero with Rockstar's Trailer 2 embed, anchor rail, three-step pipeline, creator grid, six 9:16 moment posters, detection panel. |
 | `/services`, `/product`, `/pricing`, `/plans` | Offer, feature detail, plan comparison (Starter $19 / Creator $49 / Network $129, monthly or quarterly −20 %). |
 | `/resources`, `/resources/guides`, `/resources/faq`, `/resources/changelog` | Hub, guides, FAQ, changelog. |
-| `/case-studies`, `/case-studies/:slug`, `/about`, `/toolkit`, `/contact` | Social proof, about, 22 open-source tools, contact. |
-| `/download` | Desktop download page: macOS + Windows cards, both disabled with a "Coming soon" tag and the note "Desktop apps are coming soon. We'll notify you when they're available." |
+| `/about`, `/toolkit`, `/contact` | About, the open-source tools the pipeline uses, contact (no public email until a real one exists). `/case-studies/*` redirects home. |
+| `/download` | Desktop download page: macOS + Windows cards. A card is enabled only when `DESKTOP_DOWNLOADS` in `src/shared/downloads.ts` holds a real installer URL; until then both show "Coming soon". |
 | `/local` | Local pipeline console: dependency report, disk usage, job list, SSE progress, rendered clips. |
 | `/login`, `/signup`, `/onboarding` | Auth forms, then the two-step channel setup. |
-| `/app-login` | Standalone browser sign-in for the desktop app (see §7). No site chrome; login + sign-up, then a one-time-code handoff to `clipfarm://auth`. |
+| `/desktop/authorize` | Standalone browser sign-in for the desktop app (see §7): Google or email, login + sign-up, "Continue as" when already signed in, then a one-time-code handoff. `/app-login` redirects here with its query. No site chrome. |
 | `/privacy`, `/terms`, `/styleguide`, `*` | Legal, live design system, 404. |
 
 Signed-in app (`src/components/AppShell.tsx`; background `sand`, 248 px white
@@ -254,7 +258,10 @@ Worker API (all JSON, cookie auth unless noted):
 | `GET /api/auth/me` | signed-in user or `null` |
 | `POST /api/auth/signup` / `login` / `logout` | session lifecycle (201 / 200 / 200) |
 | `POST /api/auth/app/authorize` | cookie session → one-time desktop-app code (5 minutes; only its SHA-256 is stored) |
-| `POST /api/auth/app/token` | `{ code, verifier }` → 30-day bearer session for the desktop app (PKCE S256) |
+| `POST /api/auth/app/token` | `{ code, verifier, deviceName? }` → 30-day bearer session for the desktop app (PKCE S256); renewed while in use |
+| `GET /api/auth/devices`, `DELETE /api/auth/devices/:id` | signed-in desktop apps; revoke one |
+| `POST /api/auth/terms` | `{ terms, privacy }` versions from `src/shared/legal.ts` → stored with a timestamp |
+| `PATCH /api/auth/preferences` | `{ workMode }`; only `local` is accepted (409 `cloud_unavailable` otherwise) |
 | `POST /api/auth/profile` | save onboarding; `{ skip: true }` marks it done |
 | `POST /api/auth/plan` | `{ planId, billing }` → always **402** until checkout exists (`CHECKOUT_AVAILABLE` in `src/shared/account.ts`). A paid plan only counts when `users.plan_verified_at` is set by a verified payment; every other account is on `FREE_PLAN`. `PublicUser.planId` is verified-only; an old unpaid pick shows as `requestedPlanId`. |
 | `GET /api/auth/google`, `/api/auth/google/callback` | OAuth when configured |
@@ -265,8 +272,9 @@ Worker API (all JSON, cookie auth unless noted):
 | `GET /api/clips/:id`, `POST /api/clips/:id/view` | public clip payload, view counter |
 | `GET /api/clips/:id/captions.srt`, `GET /api/clips/:id/export/:format` | real files (SRT, VTT, ASS, EDL, MLT, Editly JSON, ffmpeg script, JSON) |
 | `PATCH /api/clips/:id`, `DELETE /api/clips/:id` | status (`ready`/`posted`/`archived`), delete |
+| `POST /api/clips/import` | bearer only: clip details of a finished local job (titles, times, scores, excerpt, cues; never the video). Idempotent per `jobId`; local clips do not count toward the Free allowance |
 
-### Desktop app sign-in (`/app-login`)
+### Desktop app sign-in (`/desktop/authorize`)
 
 The desktop app never sees the account password. It opens the hosted page in the
 system browser and receives a one-time code back:
@@ -319,7 +327,12 @@ launch token, so the page never holds one. Client: `src/lib/pipeline.ts` and
 `GET /jobs/:id/events` (SSE), `POST /jobs/:id/cancel`, `POST /jobs/:id/retry`,
 `DELETE /jobs/:id`, `GET|DELETE /cache`, `POST /ytdlp/update`,
 `POST /jobs/:id/clips/:clipId/render`, `GET /posting/status`,
-`POST /publish/youtube`. Files are served from `/files/<job>/clips/<n>/`.
+`POST /publish/youtube`, `GET /bench` (SSE benchmark for the PC check),
+`POST /models/test` (15 s test transcription + face detection),
+`POST /pair/request`, `GET /pair/request/:id`, `GET /pair/requests`,
+`POST /pair/requests/approve|deny`, `POST /auth/ticket`. Files are served from
+`/files/<job>/clips/<n>/`. In the desktop app (`PIPELINE_MANAGED=1`) models are
+never auto-downloaded and yt-dlp is not updated in place.
 
 Job states: `queued → downloading → transcribing → analyzing → rendering →
 done | failed`; `result` holds the video metadata, transcript words/segments and
@@ -331,44 +344,32 @@ Visitor state stays in `localStorage`: `clipfarm.*`, cookie choice
 
 ---
 
-## 8. Building the Windows app
+## 8. The Windows app (`desktop/`)
 
-The web app is the product UI to port. Recommended shape: **Electron** (bundled
-Chromium = best parity with WebCodecs and the existing CSS) or **Tauri** with
-WebView2 (smaller, still Chromium). Either way:
+Built with **Electron 45** in `desktop/`; read `desktop/README.md` for the
+architecture, data locations, tests, release and code signing. In short:
 
-1. **Reuse the UI as-is.** Import the same React components, pages and
-   `src/styles.css`. Keep the token block untouched so the desktop app matches
-   the site pixel for pixel. Do not re-implement the theme.
-2. **Bundle the local pipeline.** Ship `pipeline/` with a Python runtime (or a
-   frozen sidecar exe), plus the static `ffmpeg`/`ffprobe` from `.tools/`, the
-   YuNet model and the fonts from `assets/fonts/`. Spawn
-   `python -m pipeline.api` (or `pipeline.cli serve`) on `127.0.0.1:8787` when
-   the app starts and point the UI at it (`VITE_PIPELINE_API`, or the production
-   fallback in `src/lib/pipeline.ts`). The pipeline is CPU-only, needs no API key
-   and stores jobs in `pipeline/data/pipeline.sqlite3`.
-3. **Auth.** Use the browser handoff above: open `/app-login` with a PKCE
-   challenge, receive `code` on the `clipfarm://auth` deep link (or on a
-   loopback `http://127.0.0.1:<port>/callback`), exchange it at
-   `/api/auth/app/token` and keep the returned bearer token in the OS credential
-   store (Windows Credential Manager / macOS Keychain). Register the `clipfarm`
-   protocol in the installer and send `Authorization: Bearer <token>` with API
-   calls; do not copy a web cookie or session into `localStorage`.
-4. **Bundle what the browser fetched from CDNs:** Inter Tight + Caveat,
-   `public/images/`, the MediaPipe BlazeFace wasm/model (currently lazily loaded
-   from jsDelivr in `src/lib/faceTrack.ts`), the transformers.js WASM runtime and
-   the Whisper weights (currently downloaded from Hugging Face once and cached by
-   the browser).
-5. **Windows specifics:** paths in `pipeline/config.py` are relative to the repo
-   root — resolve them against the install directory; use `ffmpeg.exe`; allow
-   loopback traffic; handle single-instance and auto-update; code-sign the
-   installer. Long jobs need the app not to sleep mid-render.
-6. **Keep these behaviours:** the Studio blocks the workspace with a "Pipeline
-   offline" card when `/health` fails, and the offline copy tells the user how to
-   start the service. In a desktop build you should start it for them, then keep
-   the same card as the failure state.
+1. **The UI is reused as-is.** `src/desktop/` (entry `desktop.html`, built by
+   `vite.desktop.config.ts`) adds the first-run screens, `DesktopShell`, Home
+   and Settings, and mounts the same pages, `Studio` and `src/styles.css`.
+   Do not fork components or tokens for the app; branch on `isDesktop()` only
+   where behaviour really differs.
+2. **Renderer origin `app://clipfarm`.** `/api/*` and `/pipeline-api/*` go
+   through the main process, which adds the tokens; the renderer never holds
+   one. Fonts, MediaPipe, ONNX Runtime, sounds and wall covers are bundled.
+3. **Pipeline sidecar** (`desktop/src/main/sidecar.ts`): bundled CPython,
+   ffmpeg, Deno, YuNet and fonts (`scripts/build-sidecar.mjs`), started on
+   8787–8791 with a per-launch token, health-checked, restarted after a crash,
+   stopped on quit. Data in `%LOCALAPPDATA%\Clipfarm`.
+4. **Auth** as in §7, token encrypted with safeStorage (DPAPI). Never put it
+   in `localStorage`, a URL or a web page.
+5. **Keep these behaviours:** the "Pipeline offline" card stays the failure
+   state (with Restart and Open logs in the app); Cloud and Both stay
+   "Coming soon" until cloud processing and payments exist.
+6. Wall covers come from `public/wall/manifest.json`; only entries with a
+   licence or written permission may be listed.
 
-Parity checklist when the shell runs: home hero + clip rail, `/login` →
+Parity checklist (`desktop/tests/website-parity.e2e.cjs` covers the website part): home hero + clip rail, `/login` →
 `/dashboard`, `/app-login` login + sign-up handoff, Studio onboarding modal,
 Studio three-pane editor with a real job (preview, clips, transcript, export),
 `/download`, `/styleguide`.
@@ -402,5 +403,7 @@ Studio three-pane editor with a real job (preview, clips, transcript, export),
 - The browser cutter needs WebCodecs and a local MP4/MOV/WebM; the Whisper
   worker needs a one-time model download; face tracking needs the MediaPipe CDN
   (or a bundled copy).
-- `/download` builds are placeholders ("Coming soon") until the Windows app
-  ships.
+- `/download` stays "Coming soon" until a signed release exists and its URL is
+  in `src/shared/downloads.ts`.
+- The desktop app is tested on Windows Server 2025 in CI and on Linux, not
+  yet on a consumer Windows 10/11 PC.

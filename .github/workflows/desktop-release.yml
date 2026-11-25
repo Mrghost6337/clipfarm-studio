@@ -1,0 +1,80 @@
+name: Desktop release
+
+# Publishes a Windows release to the public, releases-only repository
+# (Mrghost6337/clipfarm-studio-releases), which is where the installed app looks
+# for updates. Manual only: it never runs on push or pull request.
+#
+# Needs (repository secrets, set by the owner — never committed):
+#   RELEASES_TOKEN    fine-grained token with Contents: read & write on the
+#                     releases repository only. Used here, never shipped in the app.
+#   CSC_LINK          base64 of the code-signing .pfx (optional until a certificate exists)
+#   CSC_KEY_PASSWORD  its password
+# Bump desktop/package.json "version" before running; the release tag is v<version>.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "publish" to create a public release
+        required: true
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: inputs.confirm == 'publish'
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          bun install --frozen-lockfile
+          cd desktop
+          bun install --frozen-lockfile
+
+      - name: Build the pipeline runtime
+        working-directory: desktop
+        shell: pwsh
+        run: node scripts/build-sidecar.mjs --python-home "$env:pythonLocation"
+
+      - name: Build the app
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          bun run typecheck
+          bun run build
+
+      - name: Package, sign (when a certificate is set) and publish
+        working-directory: desktop
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if (-not $env:GH_TOKEN) { throw 'RELEASES_TOKEN is not set.' }
+          if (-not $env:CSC_LINK) {
+            Write-Warning 'No code-signing certificate: the installer will be unsigned and Windows SmartScreen will warn users.'
+            $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+          }
+          bunx electron-builder --win --publish always
