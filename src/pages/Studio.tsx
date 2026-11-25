@@ -27,6 +27,7 @@ import {
   Trash2,
   Undo2,
   UploadCloud,
+  FolderOpen,
   Video,
   Wand2,
   X,
@@ -287,11 +288,11 @@ export function Studio() {
     }
   }
 
-  async function startJob(url: string) {
+  async function startJob(url: string, title?: string) {
     setBusy(true)
     setError('')
     try {
-      const job = await pipelineApi<PipelineJob>('/jobs', { method: 'POST', body: JSON.stringify({ url, preset, maxClips: 5 }) })
+      const job = await pipelineApi<PipelineJob>('/jobs', { method: 'POST', body: JSON.stringify({ url, title, preset, maxClips: 5 }) })
       setJobs((current) => [job, ...current])
       setActiveId(job.id)
       setClipId('')
@@ -310,8 +311,8 @@ export function Studio() {
     try {
       const form = new FormData()
       form.append('file', file)
-      const uploaded = await pipelineApi<{ path: string }>('/upload', { method: 'POST', body: form })
-      await startJob(uploaded.path)
+      const uploaded = await pipelineApi<{ path: string; name: string | null }>('/upload', { method: 'POST', body: form })
+      await startJob(uploaded.path, uploaded.name?.replace(/\.[^.]+$/, '') || undefined)
       toast('Upload received. The local pipeline is starting.')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Upload failed.')
@@ -513,6 +514,12 @@ export function Studio() {
                 </span>
               )}
               {dirty && <span className="hidden h-6 items-center rounded-full bg-peach px-2 text-[0.68rem] font-semibold text-accent-ink sm:inline-flex">Unsaved style</span>}
+              {pipeline.state === 'ready' && pipeline.mode === 'paired' && (
+                <span className="hidden h-7 shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 text-[0.72rem] font-semibold text-success md:inline-flex" title={pipeline.base}>
+                  <span aria-hidden className="round size-1.5 rounded-full bg-success" />
+                  {pipeline.host === 'desktop' ? 'Connected to desktop app' : 'Connected to local pipeline'}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
               <IconButton aria-label="Undo" title="Nothing to undo yet" disabled className="hidden size-9 sm:grid">
@@ -527,6 +534,18 @@ export function Studio() {
               <Button variant="secondary" size="sm" className="hidden lg:inline-flex" disabled={!clip} onClick={() => (clip ? downloadFile(fileUrl(clip.files.mp4), `${clip.id}-clip.mp4`) : undefined)} icon={<Download className="size-4" />} title={clip ? 'Download the rendered MP4' : 'Render a clip first'}>
                 Export
               </Button>
+              {typeof window !== 'undefined' && (window as { clipfarm?: unknown }).clipfarm && clip ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden lg:inline-flex"
+                  icon={<FolderOpen className="size-4" />}
+                  onClick={() => void (window as unknown as { clipfarm: { invoke: (c: string, a: string) => Promise<boolean> } }).clipfarm.invoke('shell:show-file', clip.files.mp4)}
+                  title="Show the rendered MP4 in its folder"
+                >
+                  Show in folder
+                </Button>
+              ) : null}
               <Button size="sm" disabled={!clip} onClick={() => openInspector('publish')} title={clip ? 'Open publish settings' : 'Render a clip first'}>
                 Publish
               </Button>

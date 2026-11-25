@@ -79,6 +79,10 @@ export type PcFacts = {
 export type Recommendation = { model: 'whisper-tiny' | 'whisper-base' | 'whisper-small'; reason: string }
 export type PcCheckResult = { ok: boolean; items: PcItem[]; facts: PcFacts; recommendation: Recommendation }
 
+export type UpdateStatus = { state: 'idle' | 'checking' | 'downloading' | 'ready' | 'none' | 'error' | 'unavailable'; version: string | null; progress: number | null; error: string | null; checkedAt: string | null }
+
+export type Pairing = { id: string; origin: string; name: string; created_at: string; last_used_at: string | null }
+
 export type AppInfo = { version: string; platform: string; packaged: boolean; siteOrigin: string; dataDir: string }
 
 export type Api = {
@@ -106,6 +110,14 @@ export type Api = {
   'models:remove': { arg: string; result: ModelInfo[] }
   /** Transcribes the bundled sample with the model and finds a face, then makes it the active model. */
   'models:test': { arg: string; result: ModelTest }
+  'pairing:list': { arg: void; result: Pairing[] }
+  'pairing:revoke': { arg: string; result: Pairing[] }
+  'update:status': { arg: void; result: UpdateStatus }
+  'update:check': { arg: void; result: UpdateStatus }
+  'update:install': { arg: void; result: boolean }
+  /** Shows a native confirmation, then deletes clips, downloads, models and the job database on this PC. */
+  'data:delete-local': { arg: void; result: boolean }
+  'jobs:keep-awake': { arg: void; result: boolean }
 }
 
 export type Channel = keyof Api
@@ -116,6 +128,8 @@ export type Events = {
   'auth:status': AuthStatus
   'pccheck:item': PcItem
   'models:progress': ModelProgress
+  'update:status': UpdateStatus
+  'navigate': string
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +196,11 @@ export function validateLegalVersions(value: unknown): { terms: string; privacy:
   const version = /^\d{4}-\d{2}-\d{2}$/
   if (typeof terms !== 'string' || typeof privacy !== 'string' || !version.test(terms) || !version.test(privacy)) fail('bad legal versions')
   return { terms: terms as string, privacy: privacy as string }
+}
+
+export function validatePairingId(value: unknown): string {
+  if (typeof value !== 'string' || !/^[a-f0-9]{16}$/.test(value)) fail('bad pairing id')
+  return value as string
 }
 
 export const MODEL_IDS = ['whisper-tiny', 'whisper-base', 'whisper-small'] as const

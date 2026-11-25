@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, Menu, session, shell, type IpcMainInvokeEvent } from 'electron'
-import { appendFileSync } from 'node:fs'
+import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, session, shell, type IpcMainInvokeEvent } from 'electron'
+import { appendFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import path from 'node:path'
 
-import { IpcValidationError, validateExternalUrl, validateLegalVersions, validateModelId, validateOpenPath, validateStatePatch, type Api, type AppInfo, type Channel, type Events, type ModelTest } from '../shared/ipc'
+import { IpcValidationError, validateExternalUrl, validateLegalVersions, validateModelId, validateOpenPath, validatePairingId, validatePipelineFile, validateStatePatch, type Api, type AppInfo, type Channel, type Events, type ModelTest } from '../shared/ipc'
 import { Auth } from './auth'
 import { log, setAppLog } from './log'
+import { Watcher } from './jobs'
 import { ModelManager } from './models'
 import { recommend, runPcCheck } from './pccheck'
 import { appRoot, configurePaths, getDirs, rendererRoot } from './paths'
@@ -12,6 +13,7 @@ import { runPrepare } from './prepare'
 import { APP_ORIGIN, handleProtocol, registerScheme } from './protocol'
 import { Sidecar } from './sidecar'
 import { StateStore } from './state'
+import { Updater } from './updater'
 import { Vault } from './vault'
 
 // ---------------------------------------------------------------------------
@@ -41,6 +43,27 @@ const sidecar = new Sidecar({
   whisperModel: () => store.get().selectedModel?.replace(/^whisper-/, '') ?? null,
 })
 const models = new ModelManager(dirs.models, dirs.downloads)
+const updater = new Updater()
+const watcher = new Watcher({
+  pipeline: () => ({ port: sidecar.getStatus().state === 'ready' ? sidecar.getStatus().port : null, token: sidecar.token }),
+  siteOrigin: () => SITE_ORIGIN,
+  accountToken: () => auth.token(),
+  window: () => mainWindow,
+  onOpenStudio: () => {
+    focusWindow()
+    send('navigate', '/studio')
+  },
+  dataDir: dirs.root,
+})
+
+const pipelineCall = async <T>(route: string, init?: RequestInit): Promise<T> => {
+  const status = sidecar.getStatus()
+  if (status.state !== 'ready') throw new Error('The pipeline is not running.')
+  const response = await fetch(`http://127.0.0.1:${status.port}${route}`, { ...init, headers: { authorization: `Bearer ${sidecar.token}`, 'content-type': 'application/json' } })
+  const data = (await response.json()) as T & { detail?: string }
+  if (!response.ok) throw new Error(data.detail ?? `The pipeline answered ${response.status}.`)
+  return data
+}
 let mainWindow: BrowserWindow | null = null
 let quitting = false
 
@@ -154,6 +177,47 @@ handle('models:test', async (arg) => {
   }
   return data
 })
+handle('shell:show-file', (arg) => {
+  // /files/<job>/clips/<n>/<name> → the file on disk, inside the jobs folder only.
+  const relative = validatePipelineFile(arg).replace(/^\/files\//, '')
+  const file = path.join(dirs.pipeline, 'jobs', ...relative.split('/'))
+  if (!existsSync(file)) return false
+  shell.showItemInFolder(file)
+  return true
+})
+handle('pairing:list', () => pipelineCall('/pairings'))
+handle('pairing:revoke', async (arg) => {
+  await pipelineCall(`/pairings/${validatePairingId(arg)}`, { method: 'DELETE' })
+  return pipelineCall('/pairings')
+})
+handle('update:status', () => updater.getStatus())
+handle('update:check', () => updater.check())
+handle('update:install', () => {
+  updater.install()
+  return true
+})
+handle('jobs:keep-awake', () => watcher.isKeepingAwake())
+handle('data:delete-local', async () => {
+  const options = {
+    type: 'warning' as const,
+    buttons: ['Delete', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    title: 'Delete local data',
+    message: 'Delete all clips, downloads, models and jobs on this PC?',
+    detail: `This removes ${dirs.root} except your sign-in. Clips synced to your account stay in your account. This cannot be undone.`,
+    noLink: true,
+  }
+  const { response } = mainWindow ? await dialog.showMessageBox(mainWindow, options) : await dialog.showMessageBox(options)
+  if (response !== 0) return false
+  await sidecar.stop()
+  for (const folder of [dirs.pipeline, dirs.models, dirs.downloads, dirs.fonts]) rmSync(folder, { recursive: true, force: true })
+  store.update({ step: 'preparing', selectedModel: null, pcCheck: { allowed: null, completedAt: null, recommendedModel: null } })
+  log('data: local data deleted by the user')
+  app.relaunch()
+  app.exit(0)
+  return true
+})
 handle('auth:status', () => auth.getStatus())
 handle('auth:start', () => auth.start())
 handle('auth:cancel', () => {
@@ -168,6 +232,7 @@ handle('auth:sign-out', async () => {
 sidecar.on('status', (status) => send('pipeline:status', status))
 auth.on('status', (status) => send('auth:status', status))
 models.on('progress', (progress) => send('models:progress', progress))
+updater.on('status', (status) => send('update:status', status))
 
 // ---------------------------------------------------------------------------
 // Window
@@ -220,6 +285,22 @@ function createWindow() {
 
 function lockDownSession() {
   const ses = session.defaultSession
+  // Exports save straight to Downloads\Clipfarm (no save dialog), then say where.
+  ses.on('will-download', (_event, item) => {
+    const folder = path.join(app.getPath('downloads'), 'Clipfarm')
+    mkdirSync(folder, { recursive: true })
+    const name = item.getFilename().replace(/[<>:"/\\|?*]/g, '_')
+    let target = path.join(folder, name)
+    for (let n = 2; existsSync(target); n++) target = path.join(folder, name.replace(/(\.[^.]+)?$/, ` (${n})$1`))
+    item.setSavePath(target)
+    item.once('done', (_e, state) => {
+      log(`download: ${state} ${path.basename(target)}`)
+      if (state !== 'completed' || !Notification.isSupported()) return
+      const note = new Notification({ title: 'Saved to Downloads', body: `${path.basename(target)} is in Downloads\\Clipfarm.` })
+      note.on('click', () => shell.showItemInFolder(target))
+      note.show()
+    })
+  })
   // Only notifications and clipboard writes; no camera, mic, geolocation, etc.
   ses.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'notifications' || permission === 'clipboard-sanitized-write'))
   ses.setPermissionCheckHandler((_wc, permission) => permission === 'notifications' || permission === 'clipboard-sanitized-write')
@@ -265,6 +346,8 @@ app.whenReady().then(async () => {
   if (!['welcome', 'usage', 'preparing'].includes(step)) sidecar.start()
   await auth.restore()
   createWindow()
+  watcher.start()
+  updater.start()
   const link = deepLink(process.argv)
   if (link) void auth.handleDeepLink(link)
   log(`app: started ${app.getVersion()} data=${dirs.root}`)
@@ -282,6 +365,7 @@ app.on('before-quit', (event) => {
   if (quitting) return
   quitting = true
   event.preventDefault()
+  watcher.stop()
   void sidecar.stop().finally(() => app.exit(0))
 })
 

@@ -1,12 +1,16 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router'
 
 import { ToastProvider } from '../components/Toast'
-import { requestJson } from '../lib/api'
+import { postJson, requestJson } from '../lib/api'
 import { AuthProvider, useAuth } from '../lib/auth'
 import { connectPipeline } from '../lib/pipeline'
 import { RegionProvider } from '../lib/region'
+import { Analytics } from '../pages/app/Analytics'
+import { ClipPage } from '../pages/app/ClipPage'
+import { ClipsPage } from '../pages/app/ClipsPage'
+import { SourcesPage } from '../pages/app/SourcesPage'
 import { Studio } from '../pages/Studio'
 import { PRIVACY_VERSION, TERMS_VERSION } from '../shared/legal'
 import { invoke, type AppState, type FirstRunStep, type SoundSettings } from './bridge'
@@ -21,7 +25,11 @@ import { SignIn } from './onboarding/SignIn'
 import { Terms } from './onboarding/Terms'
 import { Usage } from './onboarding/Usage'
 import { Welcome } from './onboarding/Welcome'
+import { DesktopHome } from './Home'
+import { DesktopSettings } from './Settings'
+import { DesktopShell } from './Shell'
 import { configureSound } from './sound'
+import { on } from './bridge'
 
 type Screen = 'intro' | 'welcome' | 'usage' | 'preparing' | 'signin' | 'profile' | 'pccheck' | 'models' | 'terms' | 'ready' | 'app'
 
@@ -59,6 +67,10 @@ function Flow() {
   const { refresh } = useAuth()
   const [screen, setScreen] = useState<Screen>('intro')
   const introDone = useRef(false)
+  const navigate = useNavigate()
+
+  // The main process can send the app to a page (e.g. a "Clips ready" notification opens the Studio).
+  useEffect(() => on('navigate', (to) => navigate(to)), [navigate])
 
   useEffect(() => {
     if (state) configureSound(state.sound)
@@ -110,6 +122,9 @@ function Flow() {
   const afterProfile = useCallback(async () => {
     if (!state) return
     await refresh()
+    // The website's channel questionnaire is optional; the app marks it as skipped so app pages open.
+    const me = await requestJson<{ user: { onboardedAt: string | null } | null }>('/api/auth/me')
+    if (me.ok && me.user && !me.user.onboardedAt) await postJson('/api/auth/profile', { skip: true })
     switch (state.step) {
       case 'done':
         return toTerms('app')
@@ -195,7 +210,16 @@ function Flow() {
       {screen === 'app' && (
         <Fade id="app">
           <Routes>
-            <Route path="*" element={<Studio />} />
+            <Route path="dashboard" element={<DesktopShell />}>
+              <Route index element={<DesktopHome />} />
+              <Route path="clips" element={<ClipsPage />} />
+              <Route path="sources" element={<SourcesPage />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="settings" element={<DesktopSettings />} />
+            </Route>
+            <Route path="studio" element={<Studio />} />
+            <Route path="clip/:id" element={<ClipPage />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Fade>
       )}

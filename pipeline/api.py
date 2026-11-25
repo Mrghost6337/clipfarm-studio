@@ -100,6 +100,7 @@ class IngestRequest(BaseModel):
 
 class JobRequest(BaseModel):
     url: str
+    title: str | None = Field(default=None, max_length=200)
     preset: str | None = None
     maxClips: int | None = Field(default=None, ge=1, le=10)
 
@@ -250,7 +251,8 @@ def create_job(request: JobRequest) -> dict[str, Any]:
     if not url:
         raise HTTPException(status_code=422, detail="Paste a video link first.")
     preset = request.preset if request.preset in PRESETS else CAPTION_PRESET
-    job = db.create(url, "video", preset=preset, max_clips=request.maxClips)
+    title = (request.title or "").strip() or None
+    job = db.create(url, "video", title=title, preset=preset, max_clips=request.maxClips)
     return job
 
 

@@ -105,7 +105,7 @@ export type PipelineStatus =
   | { state: 'blocked' }
   | { state: 'unpaired'; base: string; error?: string }
   | { state: 'pairing'; base: string; code: string; expiresAt: string }
-  | { state: 'ready'; base: string; mode: 'proxy' | 'paired' }
+  | { state: 'ready'; base: string; mode: 'proxy' | 'paired'; host: 'desktop' | 'cli' | null }
 
 type Pairing = { instanceId: string; token: string; pairingId: string }
 type Active = { base: string; token: string | null; ticket: string | null; ticketExpires: number }
@@ -151,11 +151,12 @@ function writePairing(value: Pairing | null) {
   }
 }
 
-async function probe(base: string): Promise<{ base: string; instanceId: string } | null> {
+async function probe(base: string): Promise<{ base: string; instanceId: string; host: 'desktop' | 'cli' | null } | null> {
   try {
     const response = await fetch(`${base}/health`, { cache: 'no-store', signal: AbortSignal.timeout(PROBE_MS) })
-    const data = (await response.json()) as { service?: string; instanceId?: string }
-    return response.ok && data.service === 'clipfarm-pipeline' ? { base, instanceId: data.instanceId ?? '' } : null
+    const data = (await response.json()) as { service?: string; instanceId?: string; host?: string }
+    const host = data.host === 'desktop' || data.host === 'cli' ? data.host : null
+    return response.ok && data.service === 'clipfarm-pipeline' ? { base, instanceId: data.instanceId ?? '', host } : null
   } catch {
     return null
   }
@@ -193,7 +194,7 @@ async function runConnect(): Promise<PipelineStatus> {
   if (PROXY_BASE) {
     const found = await probe(PROXY_BASE)
     active = found ? { base: PROXY_BASE, token: null, ticket: null, ticketExpires: 0 } : null
-    setStatus(found ? { state: 'ready', base: PROXY_BASE, mode: 'proxy' } : { state: 'offline' })
+    setStatus(found ? { state: 'ready', base: PROXY_BASE, mode: 'proxy', host: found.host } : { state: 'offline' })
     return status
   }
 
@@ -210,7 +211,7 @@ async function runConnect(): Promise<PipelineStatus> {
   if (saved && match) {
     active = { base: match.base, token: saved.token, ticket: null, ticketExpires: 0 }
     if (await refreshTicket()) {
-      setStatus({ state: 'ready', base: match.base, mode: 'paired' })
+      setStatus({ state: 'ready', base: match.base, mode: 'paired', host: match.host })
       return status
     }
     // Revoked on the computer.

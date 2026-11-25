@@ -42,10 +42,12 @@ export function StudioEntry() {
 
   useEffect(() => {
     if (loading) return
+    // A choice already made in the desktop app (saved on the account) counts as done.
     const setup = readSetup(storageKey)
-    setDone(setup.done)
-    setOpen(!setup.done)
-  }, [storageKey, loading])
+    const done = setup.done || Boolean(user?.workMode)
+    setDone(done)
+    setOpen(!done)
+  }, [storageKey, loading, user?.workMode])
 
 
   if (loading) {
