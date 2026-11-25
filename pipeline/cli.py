@@ -6,6 +6,7 @@
     python -m pipeline.cli selftest       # end-to-end smoke test
     python -m pipeline.cli update-ytdlp
     python -m pipeline.cli auth-youtube
+    python -m pipeline.cli pair list|approve CODE|deny CODE|pairings|revoke ID
 """
 
 from __future__ import annotations
@@ -129,6 +130,64 @@ def cmd_auth(_args: argparse.Namespace) -> int:
         return 1
 
 
+def _call_service(method: str, path: str, body: dict | None = None) -> object:
+    """Talks to the running service with its launch token (DATA_DIR/launch-token)."""
+    import urllib.error
+    import urllib.request
+
+    from .security import read_runtime
+
+    runtime = read_runtime()
+    if not runtime:
+        raise SystemExit("The pipeline is not running. Start it with: python -m pipeline.cli serve")
+    port, token = runtime
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}{path}",
+        data=data,
+        method=method,
+        headers={"authorization": f"Bearer {token}", "content-type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            return json.loads(response.read() or b"null")
+    except urllib.error.HTTPError as error:
+        detail = json.loads(error.read() or b"{}").get("detail", error.reason)
+        raise SystemExit(f"{detail}") from error
+    except urllib.error.URLError as error:
+        raise SystemExit(f"Could not reach the pipeline on port {port}: {error.reason}") from error
+
+
+def cmd_pair(args: argparse.Namespace) -> int:
+    if args.action == "list":
+        pending = _call_service("GET", "/pair/requests")
+        if not pending:
+            print("No pairing requests are waiting.")
+        for item in pending:  # type: ignore[union-attr]
+            print(f"{item['code']}  {item['origin']}  {item['name']}  (expires {item['expires_at']})")
+        return 0
+    if args.action in {"approve", "deny"}:
+        if not args.value:
+            raise SystemExit(f"Usage: python -m pipeline.cli pair {args.action} CODE")
+        result = _call_service("POST", f"/pair/requests/{args.action}", {"code": args.value})
+        print(f"{result['status'].capitalize()}: {result['origin']} ({result['name']})")  # type: ignore[index]
+        return 0
+    if args.action == "pairings":
+        rows = _call_service("GET", "/pairings")
+        if not rows:
+            print("No browsers are paired.")
+        for item in rows:  # type: ignore[union-attr]
+            print(f"{item['id']}  {item['origin']}  {item['name']}  paired {item['created_at']}  last used {item['last_used_at'] or 'never'}")
+        return 0
+    if args.action == "revoke":
+        if not args.value:
+            raise SystemExit("Usage: python -m pipeline.cli pair revoke PAIRING_ID")
+        _call_service("DELETE", f"/pairings/{args.value}")
+        print("Revoked. That browser has to pair again.")
+        return 0
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pipeline")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -148,7 +207,13 @@ def main(argv: list[str] | None = None) -> int:
     test.add_argument("--video")
     test.add_argument("--max-clips", type=int, default=3)
 
+    pair = sub.add_parser("pair", help="approve, list and revoke browser pairings")
+    pair.add_argument("action", choices=["list", "approve", "deny", "pairings", "revoke"])
+    pair.add_argument("value", nargs="?")
+
     args = parser.parse_args(argv)
+    if args.command == "pair":
+        return cmd_pair(args)
     if args.command == "serve":
         from .api import serve
 

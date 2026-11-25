@@ -11,12 +11,12 @@ import { Tag } from '../../components/Pill'
 import { useRegion } from '../../lib/region'
 import { removeKey } from '../../lib/storage'
 import { usePageTitle } from '../../lib/title'
-import { planById, priceFor } from '../../shared/account'
+import { allowanceFor, planById, priceFor } from '../../shared/account'
 import { COUNTRIES, CURRENCIES, LANGUAGES, RATES_NOTE, type CurrencyCode } from '../../shared/region'
 
 export function SettingsPage() {
   usePageTitle('Settings')
-  const { user, ready, signOut } = useRequireAuth({ onboarded: true, plan: true })
+  const { user, ready, signOut } = useRequireAuth({ onboarded: true })
   const navigate = useNavigate()
   const { country, currency, language, detected, setCountry, setCurrency, setLanguage, useDetected, format, formatDate } = useRegion()
   const [consent, setConsent] = useState<ConsentRecord | null>(() => getConsent())
@@ -30,6 +30,8 @@ export function SettingsPage() {
   if (!ready || !user) return <AppLoading label="Loading settings" rows={3} />
 
   const plan = planById(user.planId)
+  const allowance = allowanceFor(user.planId)
+  const requested = planById(user.requestedPlanId)
   const billing = user.billing ?? 'monthly'
   const price = plan ? priceFor(plan, billing) : 0
   const renewsAt = user.planStartedAt ? new Date(new Date(user.planStartedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null
@@ -122,9 +124,13 @@ export function SettingsPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-[1.2rem] font-semibold tracking-[-0.025em]">Plan & billing</h2>
-            <p className="text-[0.85rem] text-muted">{plan ? `${plan.limit} clips a month, billed ${billing}.` : 'No plan selected.'}</p>
+            <p className="text-[0.85rem] text-muted">
+              {plan
+                ? `${plan.limit} clips a month, billed ${billing}.`
+                : `Free: ${allowance.limit} clips a month, nothing to pay.${requested ? ` You picked ${requested.name} earlier; it is not active and nothing was charged.` : ''}`}
+            </p>
           </div>
-          {plan && <Tag tone="peach">{plan.name}</Tag>}
+          <Tag tone="peach">{allowance.name}</Tag>
         </div>
         {plan ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -148,12 +154,14 @@ export function SettingsPage() {
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <ButtonLink to="/plans" variant="secondary">
-            {plan ? 'Change plan' : 'Choose a plan'}
+            {plan ? 'Change plan' : 'See plans'}
           </ButtonLink>
           {billing === 'quarterly' && plan ? (
             <p className="text-[0.82rem] font-medium text-success">Quarterly billing saves {format(plan.price - price)} a month.</p>
-          ) : (
+          ) : plan ? (
             <p className="text-[0.82rem] text-muted">Switch to quarterly and save 20%.</p>
+          ) : (
+            <p className="text-[0.82rem] text-muted">Paid plans open when checkout launches.</p>
           )}
         </div>
       </Card>

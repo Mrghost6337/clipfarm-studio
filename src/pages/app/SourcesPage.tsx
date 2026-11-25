@@ -24,7 +24,7 @@ const badge = (source: ClipSource) =>
 
 export function SourcesPage() {
   usePageTitle('Sources')
-  const { ready } = useRequireAuth({ onboarded: true, plan: true })
+  const { ready } = useRequireAuth({ onboarded: true })
   const toast = useToast()
   const [sources, setSources] = useState<ClipSource[]>([])
   const [loading, setLoading] = useState(true)

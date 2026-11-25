@@ -22,7 +22,6 @@ const AuthContext = createContext<AuthValue | null>(null)
 export function nextRoute(user: PublicUser | null) {
   if (!user) return '/login'
   if (!user.onboardedAt) return '/onboarding'
-  if (!user.planId) return '/plans'
   return '/dashboard'
 }
 

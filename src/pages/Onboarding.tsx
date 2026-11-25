@@ -44,7 +44,6 @@ export function Onboarding() {
 
   if (!ready || !user) return <AppLoading label="Loading your setup" />
 
-  const hasPlan = Boolean(user.planId)
 
   const toggleArea = (area: string) => {
     setAreas((list) => (list.includes(area) ? list.filter((a) => a !== area) : list.length >= MAX_FOCUS ? list : [...list, area]))
@@ -74,14 +73,14 @@ export function Onboarding() {
       return
     }
     toast(editing ? 'Channel settings saved' : 'Channel set up')
-    navigate(hasPlan ? '/dashboard' : '/plans')
+    navigate('/dashboard')
   }
 
   async function skip() {
     setSkipping(true)
     await saveProfile({ skip: true })
     setSkipping(false)
-    navigate('/plans')
+    navigate('/dashboard')
   }
 
   return (
@@ -90,7 +89,7 @@ export function Onboarding() {
       <div aria-hidden className="hero-glow absolute inset-x-0 bottom-0 h-[55%] opacity-60" />
       <Container className="relative grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
         <div className="flex flex-col gap-7">
-          <Eyebrow>{editing ? 'Channel settings' : 'Setup · step 1 of 2'}</Eyebrow>
+          <Eyebrow>{editing ? 'Channel settings' : 'Channel setup'}</Eyebrow>
           <h1 className="text-[2.6rem] leading-[1.03] font-semibold tracking-[-0.04em] text-balance sm:text-[3.4rem]">
             {editing ? 'Tune your channel' : `Let’s set up ${user.name.split(' ')[0]}’s channel`}
           </h1>

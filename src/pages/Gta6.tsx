@@ -11,6 +11,7 @@ import { SectionHeading } from '../components/SectionHeading'
 import { GTA, IMAGES } from '../content'
 import { useAuth } from '../lib/auth'
 import { usePageTitle } from '../lib/title'
+import { FREE_PLAN } from '../shared/account'
 
 const initials = (name: string) =>
   name
@@ -451,7 +452,7 @@ function Analyzer() {
             <div className="rounded-[var(--radius-xl)] bg-paper p-6 shadow-[var(--shadow-raise)] sm:p-8">
               {loading ? (
                 <p className="text-[0.9rem] text-muted">Checking your session…</p>
-              ) : user?.planId ? (
+              ) : user ? (
                 <div className="flex flex-col gap-5">
                   <div className="flex flex-col gap-1">
                     <h3 className="text-[1.15rem] font-semibold tracking-[-0.02em]">Paste the link</h3>
@@ -466,12 +467,12 @@ function Analyzer() {
                     <p className="text-[0.88rem] leading-relaxed text-body">{GTA.analyzerSignedOut}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <ButtonLink to={user ? '/plans' : '/signup'}>{user ? 'Choose a plan' : 'Create account'}</ButtonLink>
+                    <ButtonLink to="/signup">Create account</ButtonLink>
                     <ButtonLink to="/login" variant="secondary">
                       Log in
                     </ButtonLink>
                   </div>
-                  <p className="text-[0.76rem] leading-relaxed text-muted">No card for the first VOD pass. Cancel any time.</p>
+                  <p className="text-[0.76rem] leading-relaxed text-muted">Free accounts get {FREE_PLAN.limit} clips a month. No card needed.</p>
                 </div>
               )}
             </div>

@@ -32,7 +32,7 @@ type Stage = {
 /** The pipeline, with the real rows each stage produced for this workspace. */
 export function StudioPage() {
   usePageTitle('Studio')
-  const { ready } = useRequireAuth({ onboarded: true, plan: true })
+  const { ready } = useRequireAuth({ onboarded: true })
   const { data, error, load } = useDashboard(ready)
   const [clips, setClips] = useState<Clip[]>([])
   const [loading, setLoading] = useState(true)

@@ -233,7 +233,7 @@ function Skeleton() {
 
 export function Overview() {
   usePageTitle('Overview')
-  const { user, ready } = useRequireAuth({ onboarded: true, plan: true })
+  const { user, ready } = useRequireAuth({ onboarded: true })
   const { data, error, load } = useDashboard(ready)
   const [range, setRange] = useState<Range>('30')
 
@@ -433,7 +433,7 @@ export function Overview() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[0.78rem] font-semibold text-white/60">Clips this month</p>
-                <h2 className="text-[1.4rem] font-semibold tracking-[-0.03em]">{plan?.name ?? 'No plan'}</h2>
+                <h2 className="text-[1.4rem] font-semibold tracking-[-0.03em]">{data.usage.planName ?? 'Free'}</h2>
               </div>
               <span className="rounded-full bg-white/10 px-3 py-1 text-[0.78rem] font-semibold">
                 {data.usage.used} / {data.usage.limit || '—'}
@@ -443,11 +443,11 @@ export function Overview() {
               <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${pct}%` }} />
             </div>
             <p className="text-[0.82rem] text-white/65">
-              {`${renews ? `Renews ${renews}. ` : ''}${plan ? `${plan.limit} clips a month.` : 'Choose a plan to start clipping.'}`}
+              {`${renews ? `Renews ${renews}. ` : ''}${data.usage.limit} clips a month${plan ? '.' : ' on the Free plan.'}`}
             </p>
             <div className="mt-auto flex flex-col gap-2">
               <ButtonLink to="/plans" variant="light" className="w-full">
-                {plan ? 'Change plan' : 'Choose a plan'}
+                {plan ? 'Change plan' : 'See plans'}
               </ButtonLink>
               <Link to="/dashboard/settings" className="inline-flex h-10 items-center justify-center rounded-full text-[0.88rem] font-semibold text-white/80 hover:text-white">
                 Clip settings
@@ -508,7 +508,7 @@ export function Overview() {
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {[
               ['Accounts', formatNumber(data.admin.accounts)],
-              ['Paid', formatNumber(data.admin.paidAccounts)],
+              ['Paid (verified)', formatNumber(data.admin.paidAccounts)],
               ['Clips', formatNumber(data.admin.clips)],
               ['VODs', formatNumber(data.admin.sources)],
             ].map(([label, value]) => (
@@ -519,8 +519,31 @@ export function Overview() {
             ))}
           </dl>
           <p className="text-[0.82rem] text-muted">
-            MRR <b className="font-semibold text-ink tabular-nums">${formatNumber(data.admin.mrr)}</b>
+            MRR from verified payments <b className="font-semibold text-ink tabular-nums">${formatNumber(data.admin.mrr)}</b>
           </p>
+          {data.admin.unverifiedPlans.length > 0 && (
+            <div className="rounded-[var(--radius-md)] border border-line bg-sand p-3.5">
+              <h3 className="text-[0.9rem] font-semibold">Plans picked without payment ({data.admin.unverifiedPlans.length})</h3>
+              <p className="mt-1 text-[0.78rem] leading-relaxed text-muted">
+                These accounts chose a paid plan before checkout existed. They are treated as Free and are not revenue. At list price they would be $
+                {formatNumber(data.admin.unverifiedPlans.reduce((total, row) => total + row.monthly, 0))} a month.
+              </p>
+              <ul className="mt-2 flex flex-col divide-y divide-line">
+                {data.admin.unverifiedPlans.map((row) => (
+                  <li key={row.id} className="flex items-center justify-between gap-3 py-2">
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate text-[0.85rem] font-semibold">{row.name}</span>
+                      <span className="truncate text-[0.72rem] text-muted">
+                        {row.email}
+                        {row.selectedAt ? ` · picked ${new Date(row.selectedAt).toLocaleDateString()}` : ''}
+                      </span>
+                    </span>
+                    <Tag>{`${row.plan} · ${row.billing} · not paid`}</Tag>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <ul className="flex flex-col divide-y divide-line">
             {data.admin.recent.map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-3 py-2">
@@ -528,7 +551,7 @@ export function Overview() {
                   <span className="truncate text-[0.85rem] font-semibold">{row.name}</span>
                   <span className="truncate text-[0.72rem] text-muted">{row.email}</span>
                 </span>
-                <Tag>{row.plan ?? 'No plan'}</Tag>
+                <Tag>{row.plan ?? (row.requestedPlan ? `Free (picked ${row.requestedPlan})` : 'Free')}</Tag>
               </li>
             ))}
           </ul>

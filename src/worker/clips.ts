@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 
-import { planById, priceFor, PLANS, type PlanId, type PublicUser } from '../shared/account'
+import { allowanceFor, priceFor, PLANS, type PlanId, type PublicUser } from '../shared/account'
 import {
   detectFromChapters,
   detectFromTranscript,
@@ -432,12 +432,15 @@ async function clipsThisMonth(db: D1Like, userId: string) {
   return Number(row?.n ?? 0)
 }
 
+/** Verified paid plan or the Free allowance. Unpaid plan picks unlock nothing. */
 async function remainingFor(db: D1Like, user: PublicUser) {
-  const plan = planById(user.planId)
-  if (!plan) return { plan: null, used: 0, remaining: 0 }
+  const plan = allowanceFor(user.planId)
   const used = await clipsThisMonth(db, user.id)
   return { plan, used, remaining: Math.max(0, plan.limit - used) }
 }
+
+const limitMessage = (plan: { name: string; limit: number; paid: boolean }) =>
+  `You have used all ${plan.limit} clips on the ${plan.name} plan this month. The allowance resets on the 1st.`
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -481,9 +484,8 @@ app.post('/', async (c) => {
   if ('error' in ref) return c.json({ error: ref.error }, 400)
 
   const allowance = await remainingFor(c.env.DB, user)
-  if (!allowance.plan) return c.json({ error: 'Choose a plan before analyzing a VOD.' }, 403)
   if (allowance.remaining <= 0) {
-    return c.json({ error: `You have used all ${allowance.plan.limit} clips on the ${allowance.plan.name} plan this month. Upgrade to keep clipping.`, used: allowance.used, limit: allowance.plan.limit }, 409)
+    return c.json({ error: limitMessage(allowance.plan), used: allowance.used, limit: allowance.plan.limit }, 409)
   }
 
   const sourceId = crypto.randomUUID()
@@ -545,8 +547,7 @@ app.post('/sources/:id/transcript', async (c) => {
   if (cues.length < 4) return c.json({ error: 'Paste a transcript with at least four timed lines (VTT, SRT or “0:12 text” lines).' }, 400)
 
   const allowance = await remainingFor(c.env.DB, user)
-  if (!allowance.plan) return c.json({ error: 'Choose a plan first.' }, 403)
-  if (allowance.remaining <= 0) return c.json({ error: `You have used all ${allowance.plan.limit} clips this month.`, used: allowance.used, limit: allowance.plan.limit }, 409)
+  if (allowance.remaining <= 0) return c.json({ error: limitMessage(allowance.plan), used: allowance.used, limit: allowance.plan.limit }, 409)
 
   const detection: Detection = { method: 'transcript', clips: detectFromTranscript(cues, Math.min(allowance.remaining, MAX_CLIPS_PER_RUN)) }
   if (!detection.clips.length) return c.json({ error: 'Those timings did not produce a clip. Check the transcript has timestamps.' }, 422)
@@ -710,7 +711,7 @@ function buildSeries(clips: Clip[], events: Array<{ day: string; views: number }
 export async function buildDashboard(db: D1Like, user: PublicUser, now = new Date()): Promise<DashboardData> {
   const clips = await listClips(db, user.id, 500)
   const sources = await listSources(db, user.id)
-  const plan = planById(user.planId)
+  const plan = allowanceFor(user.planId)
 
   const viewRows = await db
     .prepare(`SELECT substr(e.created_at, 1, 10) AS day, COUNT(*) AS views FROM clip_events e JOIN clips c ON c.id = e.clip_id WHERE c.user_id = ? AND e.kind = 'view' GROUP BY day`)
@@ -736,7 +737,7 @@ export async function buildDashboard(db: D1Like, user: PublicUser, now = new Dat
     clips: clips.filter((clip) => clip.platform === name).length,
   }))
 
-  const renewsAt = user.planStartedAt ? new Date(new Date(user.planStartedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null
+  const renewsAt = user.planId && user.planStartedAt ? new Date(new Date(user.planStartedAt).getTime() + 30 * 24 * 3600 * 1000).toISOString() : null
 
   const activity: DashboardData['activity'] = [
     ...sources.slice(0, 6).map((source) => ({
@@ -785,30 +786,47 @@ export async function buildDashboard(db: D1Like, user: PublicUser, now = new Dat
       sourceThumbnail,
     })),
     sources: sources.slice(0, 5).map(({ id, title, platform, status, clips: count, duration, createdAt, thumbnail, method }) => ({ id, title, platform, status, clips: count, duration, createdAt, thumbnail, method })),
-    usage: { used, limit: plan?.limit ?? 0, planName: plan?.name ?? null, renewsAt },
+    usage: { used, limit: plan.limit, planName: plan.name, renewsAt },
     activity,
   }
 
   if (user.role === 'admin') {
-    const rows = await db.prepare('SELECT id, name, email, plan_id, role, created_at FROM users ORDER BY created_at DESC').all<{ id: string; name: string; email: string; plan_id: string | null; role: string; created_at: string }>()
+    type AccountRow = { id: string; name: string; email: string; plan_id: string | null; billing: string | null; plan_started_at: string | null; plan_verified_at: string | null; role: string; created_at: string }
+    const rows = await db
+      .prepare('SELECT id, name, email, plan_id, billing, plan_started_at, plan_verified_at, role, created_at FROM users ORDER BY created_at DESC')
+      .all<AccountRow>()
     const accounts = rows.results ?? []
     const totals = await db.prepare('SELECT (SELECT COUNT(*) FROM clips) AS clips, (SELECT COUNT(*) FROM sources) AS sources').first<{ clips: number; sources: number }>()
+    const planOf = (row: AccountRow) => PLANS.find((item) => item.id === (row.plan_id as PlanId | null)) ?? null
+    const verified = accounts.filter((row) => row.plan_verified_at && planOf(row))
+    const unverified = accounts.filter((row) => !row.plan_verified_at && planOf(row))
+    const monthly = (row: AccountRow) => {
+      const rowPlan = planOf(row)
+      return rowPlan ? priceFor(rowPlan, row.billing === 'quarterly' ? 'quarterly' : 'monthly') : 0
+    }
     const recent: AdminUser[] = accounts.slice(0, 5).map((row) => ({
       id: row.id,
       name: row.name,
       email: row.email,
-      plan: PLANS.find((item) => item.id === row.plan_id)?.name ?? null,
+      plan: row.plan_verified_at ? planOf(row)?.name ?? null : null,
+      requestedPlan: row.plan_verified_at ? null : planOf(row)?.name ?? null,
       role: row.role,
       createdAt: row.created_at,
     }))
-    const mrr = accounts.reduce((total, row) => {
-      const rowPlan = PLANS.find((item) => item.id === (row.plan_id as PlanId | null))
-      return total + (rowPlan ? priceFor(rowPlan, 'monthly') : 0)
-    }, 0)
     data.admin = {
       accounts: accounts.length,
-      paidAccounts: accounts.filter((row) => row.plan_id).length,
-      mrr,
+      // Revenue counts verified payments only. Nothing verifies payments yet.
+      paidAccounts: verified.length,
+      mrr: verified.reduce((total, row) => total + monthly(row), 0),
+      unverifiedPlans: unverified.map((row) => ({
+        id: row.id,
+        name: row.name,
+        email: row.email,
+        plan: planOf(row)!.name,
+        billing: row.billing === 'quarterly' ? 'quarterly' : 'monthly',
+        selectedAt: row.plan_started_at,
+        monthly: monthly(row),
+      })),
       clips: Number(totals?.clips ?? 0),
       sources: Number(totals?.sources ?? 0),
       recent,

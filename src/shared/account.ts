@@ -16,6 +16,8 @@ export type Plan = {
   featured?: boolean
 }
 
+export const planById = (id: string | null | undefined): Plan | null => PLANS.find((p) => p.id === id) ?? null
+
 export const PLANS: readonly Plan[] = [
   {
     id: 'starter',
@@ -49,7 +51,23 @@ export const PLANS: readonly Plan[] = [
 
 export const isPlanId = (value: unknown): value is PlanId => PLANS.some((p) => p.id === value)
 
-export const planById = (id: string | null | undefined) => PLANS.find((p) => p.id === id) ?? null
+/**
+ * Paid plans only unlock after the server has verified a payment. There is no
+ * payment provider wired up yet, so checkout is closed: every account is on
+ * the Free allowance below, and `POST /api/auth/plan` refuses paid plans.
+ * Flip this only together with a verified-payment webhook.
+ */
+export const CHECKOUT_AVAILABLE = false
+
+/** What an account without a verified paid plan gets (matches /pricing). */
+export const FREE_PLAN = { name: 'Free', limit: 3, maxSourceMinutes: 15 } as const
+
+/** Clip allowance for an account: its verified paid plan, or Free. */
+export function allowanceFor(planId: PlanId | null | undefined): { name: string; limit: number; paid: boolean } {
+  const plan = planById(planId)
+  return plan ? { name: plan.name, limit: plan.limit, paid: true } : { name: FREE_PLAN.name, limit: FREE_PLAN.limit, paid: false }
+}
+
 
 export type Role = 'admin' | 'member'
 
@@ -67,9 +85,13 @@ export type PublicUser = {
   captionStyle: string | null
   cadence: string | null
   onboardedAt: string | null
+  /** Set only when a payment for this plan was verified on the server. Null means Free. */
   planId: PlanId | null
+  /** A paid plan the account picked before checkout existed. Not paid, unlocks nothing. */
+  requestedPlanId: PlanId | null
   billing: Billing | null
   planStartedAt: string | null
+  planVerifiedAt: string | null
 }
 
 export const BILLINGS = ['monthly', 'quarterly'] as const

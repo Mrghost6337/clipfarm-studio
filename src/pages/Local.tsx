@@ -9,7 +9,6 @@ import {
   Play,
   RefreshCw,
   Scissors,
-  ServerOff,
   Trash2,
   UploadCloud,
   XCircle,
@@ -21,11 +20,10 @@ import { Card } from '../components/Card'
 import { controlBase, Notice } from '../components/Field'
 import { useToast } from '../components/Toast'
 import { cx } from '../lib/cx'
+import { connectPipeline, eventsUrl, fileUrl, pipelineApi } from '../lib/pipeline'
+import { PipelineConnect, usePipelineStatus } from '../components/PipelineConnect'
 import { usePageTitle } from '../lib/title'
 
-const API =
-  (import.meta.env.VITE_PIPELINE_API as string | undefined)?.replace(/\/$/, '') ||
-  (import.meta.env.DEV ? '/pipeline-api' : 'http://127.0.0.1:8787')
 
 type Check = { key: string; label: string; ok: boolean; detail: string; required: boolean }
 type VideoItem = {
@@ -77,20 +75,14 @@ const stamp = (seconds: number | null) =>
     ? '—'
     : `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init?.headers || {}) },
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error((data as { detail?: string }).detail || `Request failed (${response.status})`)
-  return data as T
-}
+const api = pipelineApi
 
 export function Local() {
   usePageTitle('Local pipeline')
   const toast = useToast()
   const [online, setOnline] = useState<boolean | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const pipeline = usePipelineStatus()
   const [checks, setChecks] = useState<Check[]>([])
   const [systemOk, setSystemOk] = useState(false)
   const [presets, setPresets] = useState<string[]>(['bold'])
@@ -124,19 +116,25 @@ export function Local() {
       setJobs(list)
       setPosting(status)
       setJob((current) => current ?? list.find((item) => item.status === 'running') ?? list[0] ?? null)
-    } catch {
+      setFailure(null)
+    } catch (error) {
       setOnline(false)
+      setFailure(error instanceof Error ? error.message : null)
     }
   }, [])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void connectPipeline()
+  }, [])
+
+  useEffect(() => {
+    if (pipeline.state === 'ready') void refresh()
+  }, [pipeline.state, refresh])
 
   useEffect(() => {
     if (!job || ['done', 'failed', 'cancelled'].includes(job.status)) return
     sourceRef.current?.close()
-    const source = new EventSource(`${API}/jobs/${job.id}/events`)
+    const source = new EventSource(eventsUrl(job.id))
     sourceRef.current = source
     source.onmessage = (event) => {
       const next = JSON.parse(event.data) as Job
@@ -271,29 +269,13 @@ export function Local() {
         </p>
       </header>
 
-      {online === false && (
-        <Card className="mt-6 flex flex-col gap-4">
-          <div className="flex items-start gap-3">
-            <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-sand text-accent-ink">
-              <ServerOff className="size-5" />
-            </span>
-            <div>
-              <h2 className="text-[1.1rem] font-semibold">The local service is not running</h2>
-              <p className="mt-1 text-[0.9rem] leading-relaxed text-body">
-                The hosted site cannot run ffmpeg, Whisper or yt-dlp. Start the pipeline on your computer, then reload this page.
-              </p>
-            </div>
-          </div>
-          <pre className="overflow-x-auto rounded-[var(--radius-md)] bg-ink p-4 text-[0.78rem] leading-relaxed text-white">
-            {`python3 -m venv .venv\n.venv/bin/pip install -r requirements.txt\nbash scripts/setup.sh\n.venv/bin/python -m pipeline.cli serve`}
-          </pre>
-          <p className="text-[0.8rem] text-muted">
-            Expected at <code className="rounded bg-sand px-1 py-0.5">{API}</code>. Override with <code className="rounded bg-sand px-1 py-0.5">VITE_PIPELINE_API</code>.
-          </p>
-        </Card>
+      {(pipeline.state !== 'ready' || online === false) && (
+        <div className="mt-6 flex justify-center">
+          <PipelineConnect failure={pipeline.state === 'ready' ? failure : null} onRetry={() => setOnline(null)} />
+        </div>
       )}
 
-      {online && (
+      {pipeline.state === 'ready' && online && (
         <>
           <Card className="mt-6 flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -420,7 +402,7 @@ export function Local() {
                   {job.result.clips.map((clip) => (
                     <li key={clip.id}>
                       <Card className="flex h-full flex-col gap-3 p-3">
-                        <video src={`${API}${clip.files.mp4}`} poster={clip.files.poster ? `${API}${clip.files.poster}` : undefined} controls playsInline className="aspect-[9/16] w-full rounded-[var(--radius-sm)] bg-ink object-contain" />
+                        <video src={fileUrl(clip.files.mp4)} poster={clip.files.poster ? fileUrl(clip.files.poster) : undefined} controls playsInline className="aspect-[9/16] w-full rounded-[var(--radius-sm)] bg-ink object-contain" />
                         <div className="flex items-start justify-between gap-2">
                           <h3 className="text-[0.95rem] leading-snug font-semibold">{clip.title}</h3>
                           <span className="shrink-0 rounded-full bg-sand px-2 py-0.5 text-[0.72rem] font-semibold tabular-nums">{clip.score}</span>
@@ -429,16 +411,16 @@ export function Local() {
                         <p className="text-[0.8rem] font-medium text-accent-ink">{clip.hashtags.join(' ')}</p>
                         <div className="mt-auto flex flex-wrap gap-1.5">
                           <a
-                            href={`${API}${clip.files.mp4}`}
+                            href={fileUrl(clip.files.mp4)}
                             download
                             className="inline-flex h-8 items-center gap-1.5 rounded-full bg-ink px-3 text-[0.78rem] font-semibold text-white hover:bg-ink-2"
                           >
                             <Download aria-hidden className="size-3.5" /> MP4
                           </a>
-                          <a href={`${API}${clip.files.srt}`} download className="inline-flex h-8 items-center rounded-full border border-line px-3 text-[0.78rem] font-semibold hover:border-ink">
+                          <a href={fileUrl(clip.files.srt)} download className="inline-flex h-8 items-center rounded-full border border-line px-3 text-[0.78rem] font-semibold hover:border-ink">
                             SRT
                           </a>
-                          <a href={`${API}${clip.files.vtt}`} download className="inline-flex h-8 items-center rounded-full border border-line px-3 text-[0.78rem] font-semibold hover:border-ink">
+                          <a href={fileUrl(clip.files.vtt)} download className="inline-flex h-8 items-center rounded-full border border-line px-3 text-[0.78rem] font-semibold hover:border-ink">
                             VTT
                           </a>
                           <button type="button" onClick={() => copyCaption(clip)} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-[0.78rem] font-semibold hover:border-ink">

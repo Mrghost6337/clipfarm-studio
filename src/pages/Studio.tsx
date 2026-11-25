@@ -40,7 +40,8 @@ import { Logo } from '../components/Logo'
 import { Drawer } from '../components/Overlay'
 import { useToast } from '../components/Toast'
 import { cx } from '../lib/cx'
-import { fileUrl, PIPELINE_API, pipelineApi, stamp, statusLabel, type PipelineClip, type PipelineJob, type PipelineListing } from '../lib/pipeline'
+import { PipelineConnect, usePipelineStatus } from '../components/PipelineConnect'
+import { connectPipeline, eventsUrl, fileUrl, pipelineApi, stamp, statusLabel, type PipelineClip, type PipelineJob, type PipelineListing } from '../lib/pipeline'
 import { usePageTitle } from '../lib/title'
 
 type SourceTab = 'channels' | 'link' | 'upload'
@@ -96,6 +97,8 @@ export function Studio() {
   usePageTitle('Studio')
   const toast = useToast()
   const [online, setOnline] = useState<boolean | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const pipeline = usePipelineStatus()
   const [jobs, setJobs] = useState<PipelineJob[]>([])
   const [activeId, setActiveId] = useState('')
   const [clipId, setClipId] = useState('')
@@ -148,18 +151,24 @@ export function Studio() {
     try {
       const list = await pipelineApi<PipelineJob[]>('/jobs?limit=40')
       setOnline(true)
+      setFailure(null)
       setJobs(list)
       setActiveId((current) => (current && list.some((job) => job.id === current) ? current : list[0]?.id ?? ''))
       const status = await pipelineApi<{ youtube: { configured: boolean; note: string } }>('/posting/status').catch(() => null)
       if (status) setPosting(status)
-    } catch {
+    } catch (error) {
       setOnline(false)
+      setFailure(error instanceof Error ? error.message : null)
     }
   }, [])
 
   useEffect(() => {
-    void loadJobs()
-  }, [loadJobs])
+    void connectPipeline()
+  }, [])
+
+  useEffect(() => {
+    if (pipeline.state === 'ready') void loadJobs()
+  }, [pipeline.state, loadJobs])
 
   useEffect(() => {
     if (!result) {
@@ -191,7 +200,7 @@ export function Studio() {
 
   useEffect(() => {
     if (!activeJob || !running) return
-    const source = new EventSource(`${PIPELINE_API}/jobs/${activeJob.id}/events`)
+    const source = new EventSource(eventsUrl(activeJob.id))
     source.onmessage = (event) => {
       const next = JSON.parse(event.data) as PipelineJob
       setJobs((current) => current.map((job) => (job.id === next.id ? next : job)))
@@ -570,17 +579,9 @@ export function Studio() {
           )}
         </header>
 
-        {online === false ? (
+        {pipeline.state !== 'ready' || online === false ? (
           <div className="grid flex-1 place-items-center p-6">
-            <div className="max-w-lg rounded-[var(--radius-lg)] border border-line bg-paper p-7 shadow-[var(--shadow-card)]">
-              <div className="flex items-center gap-2 text-[0.72rem] font-semibold tracking-[0.08em] text-danger uppercase">
-                <AlertTriangle className="size-3.5" /> Pipeline offline
-              </div>
-              <h1 className="mt-2 text-[1.4rem] font-semibold tracking-[-0.03em]">Start the local service to use the Studio</h1>
-              <p className="mt-1 text-[0.9rem] leading-relaxed text-body">The hosted app cannot run ffmpeg, Whisper or yt-dlp. Start the pipeline on this machine, then reload.</p>
-              <pre className="mt-4 overflow-x-auto rounded-[var(--radius-md)] bg-ink p-4 text-[0.76rem] leading-relaxed text-white">{`.venv/bin/python -m pipeline.cli serve\n# then open http://localhost:3000/studio`}</pre>
-              <Button className="mt-4" onClick={() => void loadJobs()}>Retry connection</Button>
-            </div>
+            <PipelineConnect failure={pipeline.state === 'ready' ? failure : null} onRetry={() => setOnline(null)} />
           </div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]">

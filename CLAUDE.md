@@ -228,7 +228,7 @@ mobile gets a sticky header + drawer):
 | Route | Contents |
 | --- | --- |
 | `/dashboard` | Overview: greeting, four KPI cards (views, clips, watch time, growth), 7/30/90-day chart, recent clips, sources, activity, plan usage; admin accounts also get a studio overview (accounts, paid plans, MRR, newest sign-ups). |
-| `/studio` (`StudioEntry` → `Studio`) | Auth gate; first visit opens the two-step setup modal (welcome/features → Cloud/Local/Both for paid plans, download step for Free). Completing it stores `clipfarm.studio.onboarding.<userId>` in `localStorage` and renders the Studio. |
+| `/studio` (`StudioEntry` → `Studio`) | Auth gate; first visit opens the two-step setup modal (welcome/features → how Clipfarm runs: Local available, Cloud and Both "Coming soon"). Completing it stores `clipfarm.studio.onboarding.<userId>` in `localStorage` and renders the Studio. |
 | `/studio` (Studio) | Three-pane editor: 300 px source rail (Channels / Link / Upload tabs, project list), centre 9:16 preview with timeline and transcript, 340 px inspector (Clips / Style / Layout / Publish). Top bar: stepper Source → Analyze → Review clips → Edit → Publish, status chip (Ready / Pipeline offline), Export + Publish buttons. Keyboard: Space/K play, J/L ±5 s. Below `md` the whole Studio is replaced by "Open the Studio on a wider screen". |
 | `/dashboard/clips`, `/dashboard/sources`, `/dashboard/analytics`, `/dashboard/settings` | Library, channels, analytics, settings (channel, region/language/currency, plan, cookies, account). |
 | `/clip/:id` | Public clip share page: source embedded at the cut, transcript excerpt, caption cues, SRT download; opening it records a view. |
@@ -256,7 +256,7 @@ Worker API (all JSON, cookie auth unless noted):
 | `POST /api/auth/app/authorize` | cookie session → one-time desktop-app code (5 minutes; only its SHA-256 is stored) |
 | `POST /api/auth/app/token` | `{ code, verifier }` → 30-day bearer session for the desktop app (PKCE S256) |
 | `POST /api/auth/profile` | save onboarding; `{ skip: true }` marks it done |
-| `POST /api/auth/plan` | `{ planId, billing }` |
+| `POST /api/auth/plan` | `{ planId, billing }` → always **402** until checkout exists (`CHECKOUT_AVAILABLE` in `src/shared/account.ts`). A paid plan only counts when `users.plan_verified_at` is set by a verified payment; every other account is on `FREE_PLAN`. `PublicUser.planId` is verified-only; an old unpaid pick shows as `requestedPlanId`. |
 | `GET /api/auth/google`, `/api/auth/google/callback` | OAuth when configured |
 | `GET /api/dashboard` | real totals, 30-day series, platforms, recent clips/sources, activity, admin block |
 | `POST /api/clips` | `{ url, transcript? }` → source + scored clips; 422 `needsTranscript` |
@@ -297,7 +297,21 @@ marketing header and footer for `/app-login`. It refuses incomplete links,
 unknown redirect targets and expired or reused codes. Never put the long-lived
 token or the password in a URL, in `localStorage`, or in a web page.
 
-Local pipeline API (`pipeline/api.py`, `http://127.0.0.1:8787`, CORS `*`):
+Local pipeline API (`pipeline/api.py`, `http://127.0.0.1:8787`, falls back to
+8788–8791 when the port is taken). Access control is in `pipeline/security.py`:
+loopback bind only, Host header must be `127.0.0.1:<port>` or
+`localhost:<port>`, browser `Origin` must be on the allowlist
+(`CLIPFARM_SITE_ORIGIN`, `app://clipfarm`, the Vite dev origin,
+`PIPELINE_ALLOWED_ORIGINS`), and every route except `GET /health` and the
+pairing handshake needs a bearer token: the per-launch token
+(`pipeline/data/launch-token`, or `PIPELINE_LAUNCH_TOKEN` from the desktop app)
+or a persistent, revocable browser pairing token. Media and SSE URLs take a
+signed `?ticket=` from `POST /auth/ticket`. Pairing: `POST /pair/request` →
+user approves with `python -m pipeline.cli pair approve CODE` →
+`GET /pair/request/:id` returns the token once. Manage with
+`pipeline.cli pair list|pairings|revoke ID`. In dev the Vite proxy adds the
+launch token, so the page never holds one. Client: `src/lib/pipeline.ts` and
+`src/components/PipelineConnect.tsx`.
 
 `GET /health`, `GET /system` (dependency report), `GET /config`,
 `POST /ingest` (channel/profile/video), `POST /upload` (multipart video),

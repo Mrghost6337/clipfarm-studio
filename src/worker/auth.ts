@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie'
 
-import { EMAIL_RE, isBilling, isPlanId, validateProfile, type PublicUser } from '../shared/account'
+import { CHECKOUT_AVAILABLE, EMAIL_RE, isBilling, isPlanId, validateProfile, type PublicUser } from '../shared/account'
 
 // Accounts for Clipfarm Studio. Users and sessions live in D1 (binding DB);
 // passwords are PBKDF2-SHA256 hashes with a per-user salt and sessions are
@@ -46,6 +46,9 @@ type UserRow = {
   plan_id: string | null
   billing: string | null
   plan_started_at: string | null
+  plan_verified_at: string | null
+  payment_provider: string | null
+  payment_ref: string | null
 }
 
 export type { PublicUser } from '../shared/account'
@@ -132,6 +135,11 @@ const COLUMNS = [
   ['plan_id', 'TEXT'],
   ['billing', 'TEXT'],
   ['plan_started_at', 'TEXT'],
+  // A paid plan counts only when a payment provider confirmed it server-side.
+  // Nothing writes these yet: checkout is not built (CHECKOUT_AVAILABLE).
+  ['plan_verified_at', 'TEXT'],
+  ['payment_provider', 'TEXT'],
+  ['payment_ref', 'TEXT'],
 ] as const
 
 const schemas = new WeakMap<object, Promise<void>>()
@@ -182,9 +190,11 @@ const publicUser = (row: UserRow): PublicUser => ({
   captionStyle: row.caption_style,
   cadence: row.cadence,
   onboardedAt: row.onboarded_at,
-  planId: isPlanId(row.plan_id) ? row.plan_id : null,
-  billing: isBilling(row.billing) ? row.billing : null,
-  planStartedAt: row.plan_started_at,
+  planId: isPlanId(row.plan_id) && row.plan_verified_at ? row.plan_id : null,
+  requestedPlanId: isPlanId(row.plan_id) && !row.plan_verified_at ? row.plan_id : null,
+  billing: isBilling(row.billing) && row.plan_verified_at ? row.billing : null,
+  planStartedAt: row.plan_verified_at ? row.plan_started_at : null,
+  planVerifiedAt: row.plan_verified_at,
 })
 
 async function startSession(db: D1Like, userId: string) {
@@ -271,6 +281,9 @@ auth.post('/signup', async (c) => {
     plan_id: null,
     billing: null,
     plan_started_at: null,
+    plan_verified_at: null,
+    payment_provider: null,
+    payment_ref: null,
   }
   await c.env.DB.prepare('INSERT INTO users (id, email, name, password_hash, google_id, created_at, role) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .bind(row.id, row.email, row.name, row.password_hash, null, row.created_at, row.role)
@@ -331,17 +344,17 @@ auth.post('/profile', async (c) => {
   return c.json({ user: await currentUser(c) })
 })
 
+// Paid plans are granted only by a verified payment (a provider webhook that
+// sets plan_verified_at). This route never upgrades an account by itself.
 auth.post('/plan', async (c) => {
   const user = await currentUser(c)
   if (!user) return c.json({ error: 'Log in to choose a plan.' }, 401)
   const input = await readJson<{ planId?: unknown; billing?: unknown }>(c.req.raw)
   if (!isPlanId(input.planId)) return c.json({ error: 'Choose one of the three plans.' }, 400)
-  const billing = isBilling(input.billing) ? input.billing : 'monthly'
-
-  await c.env.DB.prepare('UPDATE users SET plan_id = ?, billing = ?, plan_started_at = ? WHERE id = ?')
-    .bind(input.planId, billing, new Date().toISOString(), user.id)
-    .run()
-  return c.json({ user: await currentUser(c) })
+  if (!CHECKOUT_AVAILABLE) {
+    return c.json({ error: 'Paid plans open when checkout launches. Your account stays on the Free plan until then.', code: 'checkout_unavailable' }, 402)
+  }
+  return c.json({ error: 'Start checkout to upgrade. Your plan changes after the payment is confirmed.', code: 'checkout_required' }, 402)
 })
 
 // The signed-in browser page asks for a one-time code. The code is returned to

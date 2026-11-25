@@ -17,7 +17,7 @@ type Range = '7' | '14' | '30'
 
 export function Analytics() {
   usePageTitle('Analytics')
-  const { ready } = useRequireAuth({ onboarded: true, plan: true })
+  const { ready } = useRequireAuth({ onboarded: true })
   const { data, error } = useDashboard(ready)
   const [clips, setClips] = useState<Clip[]>([])
   const [range, setRange] = useState<Range>('30')

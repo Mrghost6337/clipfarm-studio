@@ -86,4 +86,25 @@ YOUTUBE_TOKEN_FILE = os.environ.get("YOUTUBE_TOKEN_FILE", str(ROOT / "secrets" /
 
 API_HOST = os.environ.get("PIPELINE_HOST", "127.0.0.1")
 API_PORT = int(os.environ.get("PIPELINE_PORT", "8787"))
+# When the first port is taken the service tries the next ones. The browser
+# Studio probes the same range (src/lib/pipeline.ts, PIPELINE_PORTS).
+API_PORT_RANGE = max(1, min(10, int(os.environ.get("PIPELINE_PORT_RANGE", "5"))))
 PUBLIC_BASE_URL = os.environ.get("PIPELINE_PUBLIC_URL", f"http://127.0.0.1:{API_PORT}")
+
+# Who may call the local API from a browser. The hosted site, the desktop app
+# and the Vite dev server; add more with PIPELINE_ALLOWED_ORIGINS (comma list).
+SITE_ORIGIN = os.environ.get("CLIPFARM_SITE_ORIGIN", "https://fractional-hr-34cett.freebuff.site").rstrip("/")
+ALLOWED_ORIGINS = frozenset(
+    origin.strip().rstrip("/")
+    for origin in [
+        SITE_ORIGIN,
+        "app://clipfarm",
+        "http://localhost:5357",
+        "http://127.0.0.1:5357",
+        *os.environ.get("PIPELINE_ALLOWED_ORIGINS", "").split(","),
+    ]
+    if origin.strip()
+)
+# The desktop app passes a fresh token per launch. Without it, `serve` makes
+# one and writes it to DATA_DIR/launch-token for the CLI and the dev proxy.
+LAUNCH_TOKEN = os.environ.get("PIPELINE_LAUNCH_TOKEN", "")
