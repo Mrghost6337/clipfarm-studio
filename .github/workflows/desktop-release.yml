@@ -94,4 +94,34 @@ jobs:
             Write-Warning 'No code-signing certificate: the installer will be unsigned and Windows SmartScreen will warn users.'
             $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
           }
-          bunx electron-builder --win --publish always "-c.extraMetadata.version=$env:VERSION" "-c.releaseInfo.releaseNotesFile=release-notes.md"
+          # A release of this version without an installer is a failed earlier run: remove it first.
+          $tag = "v$env:VERSION"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $existing = gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets 2>$null
+          $found = $LASTEXITCODE -eq 0
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($found) {
+            $existing = $existing | ConvertFrom-Json
+            if ($existing.assets | Where-Object { $_.name -like '*.exe' }) { throw "Release $tag already exists with an installer. Choose a higher version." }
+            Write-Host "Removing the incomplete release $tag"
+            gh release delete $tag --repo $env:GITHUB_REPOSITORY --cleanup-tag --yes
+          }
+          # Upload everything to a draft first: electron-builder uploads files in parallel, and
+          # each upload would otherwise try to create the published release (GitHub answers 422).
+          bunx electron-builder --win --publish always "-c.extraMetadata.version=$env:VERSION" "-c.releaseInfo.releaseNotesFile=release-notes.md" "-c.publish.releaseType=draft"
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tag = "v$env:VERSION"
+          $assets = (gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets | ConvertFrom-Json).assets.name
+          Write-Host "Assets: $($assets -join ', ')"
+          foreach ($needed in @("Clipfarm-Studio-Setup-$env:VERSION.exe", "Clipfarm-Studio-Setup-$env:VERSION.exe.blockmap", 'latest.yml')) {
+            if ($assets -notcontains $needed) { throw "The draft is missing $needed" }
+          }
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest --target $env:GITHUB_SHA --title "Clipfarm Studio for Windows $env:VERSION"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY --json url,isDraft,tagName
