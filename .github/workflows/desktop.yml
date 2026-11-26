@@ -151,6 +151,43 @@ jobs:
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\screens" | Out-Null
           Copy-Item $clip.FullName "$env:RUNNER_TEMP\screens\windows-rendered-clip.mp4"
 
+      - name: Auto-update from 0.1.0 to 0.1.1 (Install now)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          # Build a newer version from the same code and serve it as the update feed.
+          Push-Location desktop
+          $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+          bunx electron-builder --win --publish never "-c.extraMetadata.version=0.1.1" "-c.directories.output=release-update"
+          Pop-Location
+          Get-ChildItem desktop/release-update -File | Format-Table Name, Length
+          if (-not (Test-Path desktop/release-update/latest.yml)) { throw 'latest.yml was not written' }
+          $server = Start-Process -FilePath python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', (Resolve-Path desktop/release-update) -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 2
+          # Point the installed 0.1.0 at the local feed instead of the public releases repository.
+          $appDir = Split-Path $env:CLIPFARM_EXE
+          Set-Content -Path (Join-Path $appDir 'resources\app-update.yml') -Value "provider: generic`nurl: http://127.0.0.1:8765/`nupdaterCacheDirName: clipfarm-desktop-updater"
+          Write-Host "Before: $((Get-Item $env:CLIPFARM_EXE).VersionInfo.ProductVersion)"
+          Push-Location desktop
+          node tests/update.e2e.cjs "$env:RUNNER_TEMP\screens"
+          Pop-Location
+          # The silent installer replaces the app and starts it again.
+          $version = ''
+          for ($i = 0; $i -lt 90; $i++) {
+            Start-Sleep -Seconds 2
+            $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Clipfarm Studio.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($exe) { $version = $exe.VersionInfo.ProductVersion }
+            if ($version -like '0.1.1*' -and (Get-Process -Name 'Clipfarm Studio' -ErrorAction SilentlyContinue)) { break }
+          }
+          Write-Host "After: $version; running again: $([bool](Get-Process -Name 'Clipfarm Studio' -ErrorAction SilentlyContinue))"
+          if ($version -notlike '0.1.1*') { throw "The update did not install (version $version)" }
+          if (-not (Get-Process -Name 'Clipfarm Studio' -ErrorAction SilentlyContinue)) { throw 'The app did not reopen after the update' }
+          Write-Host 'UPDATE INSTALLED AND APP REOPENED'
+          Stop-Process -Name 'Clipfarm Studio' -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+
       - name: Uninstall
         if: always()
         shell: pwsh

@@ -13,6 +13,7 @@ import { runPrepare } from './prepare'
 import { APP_ORIGIN, handleProtocol, registerScheme } from './protocol'
 import { Sidecar } from './sidecar'
 import { StateStore } from './state'
+import { Site } from './site'
 import { Updater } from './updater'
 import { Vault } from './vault'
 
@@ -20,7 +21,6 @@ import { Vault } from './vault'
 // Process setup (before ready)
 // ---------------------------------------------------------------------------
 
-const SITE_ORIGIN = (process.env.CLIPFARM_SITE_ORIGIN || 'https://fractional-hr-34cett.freebuff.site').replace(/\/$/, '')
 const SMOKE_TEST = process.argv.includes('--smoke-test')
 /** Windows GUI apps have no console, so CI reads the smoke report from a file. */
 const SMOKE_REPORT = process.argv.find((arg) => arg.startsWith('--smoke-report='))?.slice('--smoke-report='.length)
@@ -36,17 +36,18 @@ if (!SMOKE_TEST && !app.requestSingleInstanceLock()) {
 }
 
 const store = new StateStore(dirs.state)
+const site = new Site(path.join(dirs.root, 'site.json'), process.env.CLIPFARM_SITE_ORIGIN)
 const sidecar = new Sidecar({
   dirs,
-  siteOrigin: SITE_ORIGIN,
+  siteOrigin: () => site.get(),
   extraOrigins: process.env.CLIPFARM_EXTRA_ORIGINS?.split(',').filter(Boolean),
   whisperModel: () => store.get().selectedModel?.replace(/^whisper-/, '') ?? null,
 })
 const models = new ModelManager(dirs.models, dirs.downloads)
-const updater = new Updater()
+const updater = new Updater(() => focusWindow())
 const watcher = new Watcher({
   pipeline: () => ({ port: sidecar.getStatus().state === 'ready' ? sidecar.getStatus().port : null, token: sidecar.token }),
-  siteOrigin: () => SITE_ORIGIN,
+  siteOrigin: () => site.get(),
   accountToken: () => auth.token(),
   window: () => mainWindow,
   onOpenStudio: () => {
@@ -68,7 +69,7 @@ let mainWindow: BrowserWindow | null = null
 let quitting = false
 
 const vault = new Vault(dirs.vault)
-const auth = new Auth(vault, () => SITE_ORIGIN, () => focusWindow())
+const auth = new Auth(vault, () => site.get(), () => focusWindow())
 
 /** Brings the window to the front, e.g. after signing in through the browser. */
 function focusWindow() {
@@ -109,7 +110,7 @@ export function send<E extends keyof Events>(event: E, payload: Events[E]) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(event, payload)
 }
 
-handle('app:info', (): AppInfo => ({ version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, siteOrigin: SITE_ORIGIN, dataDir: dirs.root }))
+handle('app:info', (): AppInfo => ({ version: app.getVersion(), platform: process.platform, packaged: app.isPackaged, siteOrigin: site.get(), dataDir: dirs.root }))
 handle('state:get', () => store.get())
 handle('state:update', (arg) => store.update(validateStatePatch(arg)))
 handle('pipeline:status', () => sidecar.getStatus())
@@ -192,10 +193,7 @@ handle('pairing:revoke', async (arg) => {
 })
 handle('update:status', () => updater.getStatus())
 handle('update:check', () => updater.check())
-handle('update:install', () => {
-  updater.install()
-  return true
-})
+handle('update:install', () => updater.install())
 handle('jobs:keep-awake', () => watcher.isKeepingAwake())
 handle('data:delete-local', async () => {
   const options = {
@@ -219,7 +217,10 @@ handle('data:delete-local', async () => {
   return true
 })
 handle('auth:status', () => auth.getStatus())
-handle('auth:start', () => auth.start())
+handle('auth:start', async () => {
+  await Promise.race([site.resolve(), new Promise((resolve) => setTimeout(resolve, 4000))])
+  return auth.start()
+})
 handle('auth:cancel', () => {
   auth.cancel()
   return auth.getStatus()
@@ -324,7 +325,7 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null)
   lockDownSession()
   handleProtocol(rendererRoot(), {
-    siteOrigin: () => SITE_ORIGIN,
+    siteOrigin: () => site.get(),
     accountToken: () => auth.token(),
     onAccountUnauthorized: () => auth.expire(),
     onAccountReachable: (reachable) => auth.setOnline(reachable),
@@ -341,6 +342,8 @@ app.whenReady().then(async () => {
   }
 
   registerProtocolClient()
+  // Follow a move of the website to a new primary domain before anything talks to it (max 4 s; offline keeps the saved one).
+  await Promise.race([site.resolve(), new Promise((resolve) => setTimeout(resolve, 4000))])
   // The pipeline starts with the app once first-run preparation has been done.
   const step = store.get().step
   if (!['welcome', 'usage', 'preparing'].includes(step)) sidecar.start()
@@ -366,7 +369,8 @@ app.on('before-quit', (event) => {
   quitting = true
   event.preventDefault()
   watcher.stop()
-  void sidecar.stop().finally(() => app.exit(0))
+  // Quit normally once the pipeline has stopped, so a downloaded update can install on quit.
+  void sidecar.stop().finally(() => app.quit())
 })
 
 /**

@@ -105,15 +105,27 @@ of wall time; on a private repository Windows minutes bill at 2×, so expect rou
 
 ## Release
 
-1. Create the **public** repository `Mrghost6337/clipfarm-studio-releases` (empty is
-   fine). The installed app reads updates from it. It never holds a GitHub token.
-2. Add the repository secret `RELEASES_TOKEN` to this repo: a fine-grained token with
-   *Contents: read and write* on the releases repository only.
-3. Bump `version` in `desktop/package.json`.
-4. Run the **Desktop release** workflow by hand and type `publish`. It builds, signs (if a
-   certificate is set), and uploads the installer, `latest.yml` and blockmap as a release.
+1. This repository must be **public**: the installed app reads its releases without a
+   token (it never holds one). The workflow publishes with its own `GITHUB_TOKEN`.
+2. Run the **Desktop release** workflow by hand with a higher `version` (e.g. 0.1.1),
+   the release `notes` and `publish`. It builds, signs (if a certificate is set), and
+   uploads the installer, `latest.yml` and blockmap as a release.
 5. Put the installer URL in `src/shared/downloads.ts` (`DESKTOP_DOWNLOADS.windows`) and
    deploy the site. `/download` enables the Windows button only when that URL is set.
+
+## How updates reach users
+
+Every installed app checks this repository's releases 10 seconds after it starts and then
+every 30 minutes. A new version downloads in the background (only the changed blocks
+when possible). Then the app shows **Update ready** with the release notes and two
+buttons, plus a Windows notification:
+
+- **Install now**: the app closes, the update installs silently and the app reopens.
+- **Later**: the prompt hides; the update installs silently the next time the app closes.
+
+Settings → Updates shows the same state and an *Install now* button. CI tests the whole
+path on Windows: it installs 0.1.0, serves a 0.1.1 build as the update feed, and checks
+that *Install now* replaces the app with 0.1.1 and reopens it.
 
 ## Code signing
 

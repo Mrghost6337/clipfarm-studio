@@ -361,12 +361,19 @@ architecture, data locations, tests, release and code signing. In short:
    ffmpeg, Deno, YuNet and fonts (`scripts/build-sidecar.mjs`), started on
    8787–8791 with a per-launch token, health-checked, restarted after a crash,
    stopped on quit. Data in `%LOCALAPPDATA%\Clipfarm`.
-4. **Auth** as in §7, token encrypted with safeStorage (DPAPI). Never put it
+4. **Site origin:** `https://clipfarm.freebuff.site` (`desktop/src/main/siteRules.ts`).
+   If the site moves, the app follows the 307 from `/api/health` (https, same
+   registrable domain only) and saves it in `site.json`.
+   **Updates:** checked every 30 minutes; "Update ready" prompt with Install now /
+   Later (Later installs on quit). Release with the manual *Desktop release*
+   workflow (`version`, `notes`); releases live in this repository, which must
+   be public.
+5. **Auth** as in §7, token encrypted with safeStorage (DPAPI). Never put it
    in `localStorage`, a URL or a web page.
-5. **Keep these behaviours:** the "Pipeline offline" card stays the failure
+6. **Keep these behaviours:** the "Pipeline offline" card stays the failure
    state (with Restart and Open logs in the app); Cloud and Both stay
    "Coming soon" until cloud processing and payments exist.
-6. Wall covers come from `public/wall/manifest.json`; only entries with a
+7. Wall covers come from `public/wall/manifest.json`; only entries with a
    licence or written permission may be listed.
 
 Parity checklist (`desktop/tests/website-parity.e2e.cjs` covers the website part): home hero + clip rail, `/login` →

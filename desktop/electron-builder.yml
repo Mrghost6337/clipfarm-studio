@@ -45,10 +45,10 @@ nsis:
   # so a reinstall keeps them. The app's Settings can delete them.
   deleteAppDataOnUninstall: false
   artifactName: Clipfarm-Studio-Setup-${version}.${ext}
-# Updates come from a public, releases-only repository; the app never holds
-# a GitHub token. The repository must exist before the first release.
+# Updates come from this (public) repository's releases; the app never holds
+# a GitHub token. Pre-releases are ignored by the updater.
 publish:
   provider: github
   owner: Mrghost6337
-  repo: clipfarm-studio-releases
+  repo: clipfarm-studio
   releaseType: release

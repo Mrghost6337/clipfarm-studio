@@ -25,6 +25,7 @@ async function launch(data) {
   })
   const page = await app.firstWindow()
   await page.setViewportSize({ width: 1280, height: 800 })
+  globalThis.__page = page
   return { app, page }
 }
 const state = (data) => JSON.parse(fs.readFileSync(path.join(data, 'state.json'), 'utf8'))
@@ -146,7 +147,7 @@ const state = (data) => JSON.parse(fs.readFileSync(path.join(data, 'state.json')
   check('terms version and time stored on the account', !!me.user.termsVersion && !!me.user.termsAcceptedAt, `${me.user.termsVersion} ${me.user.termsAcceptedAt}`)
   check('terms recorded on this PC', state(data).termsAccepted?.terms === me.user.termsVersion)
   await page.getByRole('button', { name: 'Start' }).click()
-  await page.getByRole('complementary', { name: 'Sources' }).waitFor({ timeout: 60000 })
+  await page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ }).waitFor({ timeout: 60000 })
   check('Start opens the app', state(data).step === 'done')
   await app.close()
 
@@ -155,7 +156,7 @@ const state = (data) => JSON.parse(fs.readFileSync(path.join(data, 'state.json')
   await page.getByRole('img', { name: 'Clipfarm Studio is starting' }).waitFor({ timeout: 15000 })
   await page.getByRole('heading', { name: 'Robin Tester' }).waitFor({ timeout: 20000 })
   await page.screenshot({ path: `${OUT}/p3-returning-profile.png` })
-  await page.getByRole('complementary', { name: 'Sources' }).waitFor({ timeout: 60000 })
+  await page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/ }).waitFor({ timeout: 60000 })
   check('returning launch goes intro → profile → app', true)
   await app.close()
   await browser.close()
@@ -163,7 +164,8 @@ const state = (data) => JSON.parse(fs.readFileSync(path.join(data, 'state.json')
   const failed = results.filter((r) => !r.ok).length
   console.log(`\n${results.length - failed}/${results.length} checks passed`)
   process.exit(failed ? 1 : 0)
-})().catch((error) => {
+})().catch(async (error) => {
+  await globalThis.__page?.screenshot({ path: `${OUT}/failure.png` }).catch(() => undefined)
   console.error(error)
   process.exit(1)
 })

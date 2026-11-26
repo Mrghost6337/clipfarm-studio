@@ -1,22 +1,31 @@
 name: Desktop release
 
-# Publishes a Windows release to the public, releases-only repository
-# (Mrghost6337/clipfarm-studio-releases), which is where the installed app looks
-# for updates. Manual only: it never runs on push or pull request.
+# Publishes a Windows release in this repository (it must be public: the
+# installed app reads releases without a token). Manual only: it never runs on
+# push or pull request. Uses the workflow's own GITHUB_TOKEN.
 #
-# Needs (repository secrets, set by the owner — never committed):
-#   RELEASES_TOKEN    fine-grained token with Contents: read & write on the
-#                     releases repository only. Used here, never shipped in the app.
-#   CSC_LINK          base64 of the code-signing .pfx (optional until a certificate exists)
+# Optional repository secrets (set by the owner — never committed):
+#   CSC_LINK          base64 of the code-signing .pfx (until then the build is unsigned)
 #   CSC_KEY_PASSWORD  its password
-# Bump desktop/package.json "version" before running; the release tag is v<version>.
+# Every installed app checks that repository every 30 minutes, downloads the new
+# version in the background and offers "Install now" or "Later" (Later installs
+# it when the app is closed). Nobody has to reinstall.
 
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: New version, higher than the last release (e.g. 0.1.1)
+        required: true
+      notes:
+        description: What's new (shown in the app's update prompt)
+        required: true
       confirm:
         description: Type "publish" to create a public release
         required: true
+
+permissions:
+  contents: write
 
 concurrency:
   group: desktop-release
@@ -25,6 +34,9 @@ concurrency:
 jobs:
   release:
     if: inputs.confirm == 'publish'
+    env:
+      VERSION: ${{ inputs.version }}
+      NOTES: ${{ inputs.notes }}
     runs-on: windows-2025
     timeout-minutes: 60
     steps:
@@ -38,6 +50,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Check the version
+        shell: pwsh
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.3, got '$env:VERSION'" }
+          Set-Content -Path desktop/release-notes.md -Value $env:NOTES
 
       - name: Install dependencies
         shell: pwsh
@@ -66,15 +84,14 @@ jobs:
         working-directory: desktop
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          if (-not $env:GH_TOKEN) { throw 'RELEASES_TOKEN is not set.' }
           if (-not $env:CSC_LINK) {
             Write-Warning 'No code-signing certificate: the installer will be unsigned and Windows SmartScreen will warn users.'
             $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
           }
-          bunx electron-builder --win --publish always
+          bunx electron-builder --win --publish always "-c.extraMetadata.version=$env:VERSION" "-c.releaseInfo.releaseNotesFile=release-notes.md"

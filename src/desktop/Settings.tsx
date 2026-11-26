@@ -366,13 +366,13 @@ function Updates({ info }: { info: AppInfo }) {
             ? 'You have the latest version.'
             : status?.error ?? ''
   return (
-    <Section id="updates" title="Updates" text={`Version ${info.version}. Updates download in the background and install when you restart.`}>
+    <Section id="updates" title="Updates" text={`Version ${info.version}. New versions download in the background. Install them right away, or they install when you close the app.`}>
       <p className="text-[0.95rem]">{label}</p>
       <div className="mt-4 flex gap-2">
         <Button variant="secondary" disabled={status?.state === 'unavailable' || status?.state === 'checking'} onClick={async () => setStatus(await invoke('update:check'))}>
           Check for updates
         </Button>
-        {status?.state === 'ready' && <Button onClick={() => void invoke('update:install')}>Restart to update</Button>}
+        {status?.state === 'ready' && <Button onClick={() => void invoke('update:install')}>Install now</Button>}
       </div>
     </Section>
   )
