@@ -366,7 +366,8 @@ architecture, data locations, tests, release and code signing. In short:
    registrable domain only) and saves it in `site.json`.
    **Updates:** checked every 30 minutes; "Update ready" prompt with Install now /
    Later (Later installs on quit). Release with the manual *Desktop release*
-   workflow (`version`, `notes`).
+   workflow (`version`, `notes`); releases live in this repository, which must
+   be public.
 5. **Auth** as in §7, token encrypted with safeStorage (DPAPI). Never put it
    in `localStorage`, a URL or a web page.
 6. **Keep these behaviours:** the "Pipeline offline" card stays the failure
