@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '../../components/Button'
 import { Notice } from '../../components/Field'
@@ -13,6 +13,8 @@ import { Avatar } from './Avatar'
  * three loading dots while the real account data loads (profile, then the
  * dashboard: clips, sources and plan). Continues as soon as it has loaded.
  */
+const MIN_SHOWN_MS = 1600
+
 export function Profile({ onDone }: { onDone: () => void }) {
   const { user: account, refresh } = useAuth()
   const status = useAuthStatus()
@@ -20,6 +22,17 @@ export function Profile({ onDone }: { onDone: () => void }) {
   const user = account ?? (status?.state === 'signed-in' ? { name: status.user.name, email: status.user.email, avatarUrl: status.user.avatarUrl } : null)
   const [error, setError] = useState('')
   const [offline, setOffline] = useState(false)
+  // The parent passes a new callback on every render: keep the latest, and finish only once.
+  const done = useRef(onDone)
+  done.current = onDone
+  const finished = useRef(false)
+  const shownAt = useRef(Date.now())
+  // Show the profile long enough to be seen (returning launches: intro → profile → app).
+  const finish = useCallback(() => {
+    if (finished.current) return
+    finished.current = true
+    window.setTimeout(() => done.current(), Math.max(0, MIN_SHOWN_MS - (Date.now() - shownAt.current)))
+  }, [])
 
   const load = useCallback(async () => {
     setError('')
@@ -27,7 +40,7 @@ export function Profile({ onDone }: { onDone: () => void }) {
     const me = await requestJson<{ user: unknown; offline?: boolean }>('/api/auth/me')
     if (me.ok && me.offline) {
       setOffline(true)
-      onDone()
+      finish()
       return
     }
     const dashboard = await requestJson<{ summary: unknown }>('/api/dashboard')
@@ -36,8 +49,8 @@ export function Profile({ onDone }: { onDone: () => void }) {
       return
     }
     if (!dashboard.ok) setOffline(true)
-    onDone()
-  }, [refresh, onDone])
+    finish()
+  }, [refresh, finish])
 
   useEffect(() => {
     void load()

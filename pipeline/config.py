@@ -100,7 +100,7 @@ PUBLIC_BASE_URL = os.environ.get("PIPELINE_PUBLIC_URL", f"http://127.0.0.1:{API_
 
 # Who may call the local API from a browser. The hosted site, the desktop app
 # and the Vite dev server; add more with PIPELINE_ALLOWED_ORIGINS (comma list).
-SITE_ORIGIN = os.environ.get("CLIPFARM_SITE_ORIGIN", "https://fractional-hr-34cett.freebuff.site").rstrip("/")
+SITE_ORIGIN = os.environ.get("CLIPFARM_SITE_ORIGIN", "https://clipfarm.freebuff.site").rstrip("/")
 ALLOWED_ORIGINS = frozenset(
     origin.strip().rstrip("/")
     for origin in [

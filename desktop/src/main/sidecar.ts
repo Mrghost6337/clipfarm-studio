@@ -14,7 +14,7 @@ const BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 20_000]
 const MAX_RESTARTS_IN_WINDOW = 5
 const RESTART_WINDOW_MS = 3 * 60_000
 
-type Options = { dirs: Dirs; siteOrigin: string; extraOrigins?: string[]; whisperModel?: () => string | null }
+type Options = { dirs: Dirs; siteOrigin: () => string; extraOrigins?: string[]; whisperModel?: () => string | null }
 
 /**
  * Runs the Python pipeline as a child process on 127.0.0.1, with a fresh
@@ -77,7 +77,7 @@ export class Sidecar extends EventEmitter {
       PIPELINE_ENV_FILE: path.join(dirs.root, 'pipeline.env'),
       FFMPEG_PATH: path.join(layout.bin, `ffmpeg${exe}`),
       FFPROBE_PATH: path.join(layout.bin, `ffprobe${exe}`),
-      CLIPFARM_SITE_ORIGIN: this.options.siteOrigin,
+      CLIPFARM_SITE_ORIGIN: this.options.siteOrigin(),
       PIPELINE_ALLOWED_ORIGINS: (this.options.extraOrigins ?? []).join(','),
       // The model chosen and tested in the app (tiny/base/small); the pipeline only loads installed models.
       WHISPER_MODEL: this.options.whisperModel?.() ?? 'tiny',

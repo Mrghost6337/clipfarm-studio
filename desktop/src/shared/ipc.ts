@@ -79,7 +79,7 @@ export type PcFacts = {
 export type Recommendation = { model: 'whisper-tiny' | 'whisper-base' | 'whisper-small'; reason: string }
 export type PcCheckResult = { ok: boolean; items: PcItem[]; facts: PcFacts; recommendation: Recommendation }
 
-export type UpdateStatus = { state: 'idle' | 'checking' | 'downloading' | 'ready' | 'none' | 'error' | 'unavailable'; version: string | null; progress: number | null; error: string | null; checkedAt: string | null }
+export type UpdateStatus = { state: 'idle' | 'checking' | 'downloading' | 'ready' | 'none' | 'error' | 'unavailable'; version: string | null; progress: number | null; notes: string | null; error: string | null; checkedAt: string | null }
 
 export type Pairing = { id: string; origin: string; name: string; created_at: string; last_used_at: string | null }
 
@@ -114,6 +114,7 @@ export type Api = {
   'pairing:revoke': { arg: string; result: Pairing[] }
   'update:status': { arg: void; result: UpdateStatus }
   'update:check': { arg: void; result: UpdateStatus }
+  /** Installs a downloaded update now: quits, installs silently and reopens. */
   'update:install': { arg: void; result: boolean }
   /** Shows a native confirmation, then deletes clips, downloads, models and the job database on this PC. */
   'data:delete-local': { arg: void; result: boolean }

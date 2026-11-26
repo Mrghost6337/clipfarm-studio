@@ -28,6 +28,7 @@ import { Welcome } from './onboarding/Welcome'
 import { DesktopHome } from './Home'
 import { DesktopSettings } from './Settings'
 import { DesktopShell } from './Shell'
+import { UpdatePrompt } from './UpdatePrompt'
 import { configureSound } from './sound'
 import { on } from './bridge'
 
@@ -119,12 +120,15 @@ function Flow() {
   }, [state, go])
 
   /** After the profile: the first-run steps still open, in order, else the app. */
+  const screenRef = useRef(screen)
+  screenRef.current = screen
   const afterProfile = useCallback(async () => {
-    if (!state) return
+    if (!state || screenRef.current !== 'profile') return
     await refresh()
     // The website's channel questionnaire is optional; the app marks it as skipped so app pages open.
     const me = await requestJson<{ user: { onboardedAt: string | null } | null }>('/api/auth/me')
     if (me.ok && me.user && !me.user.onboardedAt) await postJson('/api/auth/profile', { skip: true })
+    if (screenRef.current !== 'profile') return
     switch (state.step) {
       case 'done':
         return toTerms('app')
@@ -149,6 +153,8 @@ function Flow() {
   }
 
   return (
+    <>
+    {screen !== 'intro' && <UpdatePrompt />}
     <AnimatePresence mode="wait">
       {screen === 'intro' && (
         <Fade id="intro">
@@ -224,6 +230,7 @@ function Flow() {
         </Fade>
       )}
     </AnimatePresence>
+    </>
   )
 }
 

@@ -1,7 +1,11 @@
 # Deploying the website and Worker
 
-The live origin is configurable. Today it is
-`https://fractional-hr-34cett.freebuff.site`.
+The live origin is configurable. Today it is `https://clipfarm.freebuff.site`
+(the primary domain). The old preview domain
+`https://fractional-hr-34cett.freebuff.site` redirects GETs there (307) and
+refuses POSTs with 409 "Use the primary site domain.". The desktop app follows
+such a move by itself (`desktop/src/main/site.ts`): only over https and only
+within the same registrable domain.
 
 - The website and Worker deploy as one unit (`dist/client` + `dist/clipfarm_studio/index.js`).
 - The local pipeline reads the site origin from `CLIPFARM_SITE_ORIGIN`
